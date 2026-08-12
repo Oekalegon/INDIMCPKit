@@ -11,6 +11,10 @@ import Testing
 /// (Raspberry-Pi-only) INDI driver catalog: starting the messaging stream just opens a TCP
 /// connection to a running `indiserver`, so this suite also starts/stops `indiserver` itself
 /// (via `INDIServerManagement`) to give messaging something to connect to.
+///
+/// Bodies run under `IndiServerTestLock`, since `INDIServerManagementIntegrationTests` and
+/// `INDIRigReconciliationIntegrationTests` also start/stop this same shared `indiserver` process
+/// and Swift Testing runs different suites concurrently by default — see that lock's doc comment.
 @Suite("INDI messaging (live server)")
 struct INDIMessagingIntegrationTests {
     @Test(
@@ -18,25 +22,27 @@ struct INDIMessagingIntegrationTests {
         .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
     )
     func startStatusStop() async throws {
-        let urlString = ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"]!
-        let client = INDIMCPClient(endpoint: try #require(URL(string: urlString)))
-        try await client.connect()
+        try await IndiServerTestLock.withLock {
+            let urlString = ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"]!
+            let client = INDIMCPClient(endpoint: try #require(URL(string: urlString)))
+            try await client.connect()
 
-        _ = try await client.startINDIServer()
+            _ = try await client.startINDIServer()
 
-        let started = try await client.startINDIMessaging()
-        #expect(started.running == true)
+            let started = try await client.startINDIMessaging()
+            #expect(started.running == true)
 
-        let status = try await client.getINDIMessagingStatus()
-        #expect(status.running == true)
+            let status = try await client.getINDIMessagingStatus()
+            #expect(status.running == true)
 
-        let messages = try await client.listINDIMessages(limit: 5)
-        #expect(messages.count <= 5)
+            let messages = try await client.listINDIMessages(limit: 5)
+            #expect(messages.count <= 5)
 
-        let stopped = try await client.stopINDIMessaging()
-        #expect(stopped.running == false)
+            let stopped = try await client.stopINDIMessaging()
+            #expect(stopped.running == false)
 
-        _ = try await client.stopINDIServer()
-        await client.disconnect()
+            _ = try await client.stopINDIServer()
+            await client.disconnect()
+        }
     }
 }
