@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.1
 import PackageDescription
 
 let package = Package(
@@ -10,9 +10,15 @@ let package = Package(
     products: [
         .library(name: "INDIMCPKit", targets: ["INDIMCPKit"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/modelcontextprotocol/swift-sdk.git", from: "0.12.0"),
+    ],
     targets: [
         .target(
-            name: "INDIMCPKit"
+            name: "INDIMCPKit",
+            dependencies: [
+                .product(name: "MCP", package: "swift-sdk"),
+            ]
         ),
         .executableTarget(
             name: "INDIMCPKitTestApp",
