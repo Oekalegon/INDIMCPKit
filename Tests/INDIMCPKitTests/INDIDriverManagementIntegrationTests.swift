@@ -27,9 +27,13 @@ struct INDIDriverManagementIntegrationTests {
         // list_rigs isn't part of driver management, but it's a list-returning tool that
         // doesn't depend on the INDI driver catalog, so it's a reliable way to confirm
         // INDIMCPClient.callToolList's {"result": [...]} unwrapping works against the real wire
-        // format without depending on catalog-path environment differences.
+        // format without depending on catalog-path environment differences. Doesn't assert an
+        // exact count or emptiness: other live-server test suites (rigs, rig reconciliation) save
+        // rigs to this same server, so however many exist is legitimately test-run-dependent —
+        // what's actually being verified is that callToolList unwraps {"result": [...]} and
+        // decodes each element as an object at all, not any particular count.
         let rigs: [Value] = try await client.callToolList("list_rigs", decoding: Value.self)
-        #expect(rigs.isEmpty)
+        #expect(rigs.allSatisfy { if case .object = $0 { return true } else { return false } })
 
         await client.disconnect()
     }

@@ -9,6 +9,10 @@ import Testing
 /// `http://127.0.0.1:8123/mcp`), since CI has no INDIMCP-server (or `indiserver`
 /// binary) available. Point it at a local `uv run indi-mcp --transport streamable-http
 /// --host 127.0.0.1 --port 8123` to run this manually.
+///
+/// Bodies run under `IndiServerTestLock`, since `INDIMessagingIntegrationTests` and
+/// `INDIRigReconciliationIntegrationTests` also start/stop this same shared `indiserver` process
+/// and Swift Testing runs different suites concurrently by default — see that lock's doc comment.
 @Suite("INDI server management (live server)")
 struct INDIServerManagementIntegrationTests {
     @Test(
@@ -16,19 +20,21 @@ struct INDIServerManagementIntegrationTests {
         .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
     )
     func startThenStop() async throws {
-        let client = try await connectedClient()
+        try await IndiServerTestLock.withLock {
+            let client = try await connectedClient()
 
-        let started = try await client.startINDIServer()
-        #expect(started.running == true)
-        #expect(started.port == defaultINDIServerPort)
+            let started = try await client.startINDIServer()
+            #expect(started.running == true)
+            #expect(started.port == defaultINDIServerPort)
 
-        let statusWhileRunning = try await client.getINDIServerStatus()
-        #expect(statusWhileRunning.running == true)
+            let statusWhileRunning = try await client.getINDIServerStatus()
+            #expect(statusWhileRunning.running == true)
 
-        let stopped = try await client.stopINDIServer()
-        #expect(stopped.running == false)
+            let stopped = try await client.stopINDIServer()
+            #expect(stopped.running == false)
 
-        await client.disconnect()
+            await client.disconnect()
+        }
     }
 
     @Test(
@@ -36,21 +42,23 @@ struct INDIServerManagementIntegrationTests {
         .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
     )
     func restartKeepsOrSwitchesPort() async throws {
-        let client = try await connectedClient()
+        try await IndiServerTestLock.withLock {
+            let client = try await connectedClient()
 
-        _ = try await client.startINDIServer()
+            _ = try await client.startINDIServer()
 
-        let restartedSamePort = try await client.restartINDIServer()
-        #expect(restartedSamePort.running == true)
-        #expect(restartedSamePort.port == defaultINDIServerPort)
+            let restartedSamePort = try await client.restartINDIServer()
+            #expect(restartedSamePort.running == true)
+            #expect(restartedSamePort.port == defaultINDIServerPort)
 
-        let otherPort = defaultINDIServerPort + 1
-        let restartedNewPort = try await client.restartINDIServer(port: otherPort)
-        #expect(restartedNewPort.running == true)
-        #expect(restartedNewPort.port == otherPort)
+            let otherPort = defaultINDIServerPort + 1
+            let restartedNewPort = try await client.restartINDIServer(port: otherPort)
+            #expect(restartedNewPort.running == true)
+            #expect(restartedNewPort.port == otherPort)
 
-        _ = try await client.stopINDIServer()
-        await client.disconnect()
+            _ = try await client.stopINDIServer()
+            await client.disconnect()
+        }
     }
 
     private func connectedClient() async throws -> INDIMCPClient {
