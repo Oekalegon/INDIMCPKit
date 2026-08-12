@@ -9,7 +9,11 @@ import Testing
 /// for how to run this manually. Unlike the other integration suites, rig storage writes
 /// `<rig.id>.yaml` files to a `rigs/` directory relative to the server process's working
 /// directory — run the server from a scratch/throwaway directory (not a checkout with real rig
-/// files) so this doesn't collide with or clutter anything real.
+/// files) so this doesn't collide with or clutter anything real. INDIMCP-server has no
+/// `delete_rig` tool, so **never point this at a server whose `rigs/` directory you care about**:
+/// every run of this suite leaves one or more `indimcpkit-test-<uuid>.yaml` files behind with no
+/// way to remove them via the API — only a scratch directory you can throw away afterwards makes
+/// that harmless.
 ///
 /// Uses a UUID-suffixed rig id and never asserts the exact contents of `list_rigs`, since a
 /// long-lived manual server may already have other rigs saved.
