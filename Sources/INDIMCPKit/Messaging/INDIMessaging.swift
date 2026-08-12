@@ -33,6 +33,11 @@ extension INDIMCPClient {
     }
 
     /// Sends a command to an INDI device, setting `elements` on its property `name`.
+    ///
+    /// This is a low-level, unguarded passthrough — it can set any property on any device,
+    /// including ones that move hardware (e.g. a mount's coordinate vector), with no
+    /// confirmation or state checks. Prefer a device-type abstraction (`Mount`, `Camera`, ...)
+    /// once available; use this directly only when you specifically need to bypass them.
     public func sendINDIProperty(
         device: String,
         name: String,
