@@ -45,11 +45,45 @@ public final class INDIMCPClient: Sendable {
     /// Every standard INDIMCP-server tool returns a typed (Pydantic/TypedDict) result, which
     /// FastMCP surfaces as `structuredContent` on the `tools/call` response — this is what gets
     /// decoded, not the human-readable `content` text block also present on the response.
+    ///
+    /// Only for tools whose Python return type is itself an object (a `TypedDict`/`BaseModel`).
+    /// A tool that returns a bare `list[...]` needs `callToolList(_:arguments:decoding:)` instead
+    /// — see its doc comment for why.
     func callTool<Output: Decodable & Sendable>(
         _ name: String,
         arguments: [String: Value]? = nil,
         decoding type: Output.Type
     ) async throws -> Output {
+        let structuredContent = try await structuredContent(forToolNamed: name, arguments: arguments)
+        return try Self.decode(Output.self, from: structuredContent)
+    }
+
+    /// Calls a tool whose Python return type is a bare `list[...]` and decodes its elements.
+    ///
+    /// FastMCP can't put a JSON array directly in `structuredContent` — the MCP spec requires
+    /// `structuredContent` to be a JSON *object* matching the tool's declared output schema — so
+    /// it wraps a bare list return value as `{"result": [...]}` instead. This unwraps that
+    /// convention; a tool that already returns an object containing its own array field doesn't
+    /// need this; use `callTool(_:arguments:decoding:)` and give it a wrapper type instead.
+    func callToolList<Output: Decodable & Sendable>(
+        _ name: String,
+        arguments: [String: Value]? = nil,
+        decoding type: Output.Type
+    ) async throws -> [Output] {
+        let structuredContent = try await structuredContent(forToolNamed: name, arguments: arguments)
+        return try Self.decode(ListResult<Output>.self, from: structuredContent).result
+    }
+
+    private struct ListResult<Element: Decodable & Sendable>: Decodable, Sendable {
+        let result: [Element]
+    }
+
+    private static func decode<Output: Decodable>(_ type: Output.Type, from value: Value) throws -> Output {
+        let data = try JSONEncoder().encode(value)
+        return try JSONDecoder().decode(Output.self, from: data)
+    }
+
+    private func structuredContent(forToolNamed name: String, arguments: [String: Value]?) async throws -> Value {
         let context: RequestContext<CallTool.Result> = try await client.callTool(
             name: name, arguments: arguments
         )
@@ -66,8 +100,7 @@ public final class INDIMCPClient: Sendable {
             throw INDIMCPClientError.missingStructuredContent(tool: name)
         }
 
-        let data = try JSONEncoder().encode(structuredContent)
-        return try JSONDecoder().decode(Output.self, from: data)
+        return structuredContent
     }
 
     private static func errorMessage(from content: [Tool.Content]) -> String {
