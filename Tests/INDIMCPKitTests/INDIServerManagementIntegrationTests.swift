@@ -16,10 +16,7 @@ struct INDIServerManagementIntegrationTests {
         .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
     )
     func startThenStop() async throws {
-        let urlString = ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"]!
-        let endpoint = try #require(URL(string: urlString))
-        let client = INDIMCPClient(endpoint: endpoint)
-        try await client.connect()
+        let client = try await connectedClient()
 
         let started = try await client.startINDIServer()
         #expect(started.running == true)
@@ -32,5 +29,34 @@ struct INDIServerManagementIntegrationTests {
         #expect(stopped.running == false)
 
         await client.disconnect()
+    }
+
+    @Test(
+        "restart keeps the current port when none is given, and switches when one is",
+        .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
+    )
+    func restartKeepsOrSwitchesPort() async throws {
+        let client = try await connectedClient()
+
+        _ = try await client.startINDIServer()
+
+        let restartedSamePort = try await client.restartINDIServer()
+        #expect(restartedSamePort.running == true)
+        #expect(restartedSamePort.port == defaultINDIServerPort)
+
+        let otherPort = defaultINDIServerPort + 1
+        let restartedNewPort = try await client.restartINDIServer(port: otherPort)
+        #expect(restartedNewPort.running == true)
+        #expect(restartedNewPort.port == otherPort)
+
+        _ = try await client.stopINDIServer()
+        await client.disconnect()
+    }
+
+    private func connectedClient() async throws -> INDIMCPClient {
+        let urlString = ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"]!
+        let client = INDIMCPClient(endpoint: try #require(URL(string: urlString)))
+        try await client.connect()
+        return client
     }
 }
