@@ -26,7 +26,10 @@ let package = Package(
         ),
         .testTarget(
             name: "INDIMCPKitTests",
-            dependencies: ["INDIMCPKit"]
+            dependencies: [
+                "INDIMCPKit",
+                .product(name: "MCP", package: "swift-sdk"),
+            ]
         ),
     ]
 )
