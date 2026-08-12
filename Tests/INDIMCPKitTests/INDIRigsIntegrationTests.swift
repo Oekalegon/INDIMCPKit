@@ -20,29 +20,62 @@ struct INDIRigsIntegrationTests {
         .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
     )
     func saveGetAndList() async throws {
-        let urlString = ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"]!
-        let client = INDIMCPClient(endpoint: try #require(URL(string: urlString)))
-        try await client.connect()
+        let client = try await connectedClient()
 
-        let rigID = "indimcpkit-test-\(UUID().uuidString)"
-        let rig = Rig(
-            id: rigID,
+        let rig = Self.makeRig(id: "indimcpkit-test-\(UUID().uuidString)")
+
+        let saved = try await client.saveRig(rig)
+        #expect(saved == rig)
+
+        let fetched = try await client.getRig(id: rig.id)
+        #expect(fetched == rig)
+
+        let rigs = try await client.listRigs()
+        #expect(rigs.contains(RigSummary(id: rig.id, name: rig.name)))
+
+        await client.disconnect()
+    }
+
+    @Test(
+        "save refuses to replace an existing rig unless overwrite is set",
+        .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
+    )
+    func saveRefusesToOverwriteByDefault() async throws {
+        let client = try await connectedClient()
+
+        let rig = Self.makeRig(id: "indimcpkit-test-\(UUID().uuidString)")
+        _ = try await client.saveRig(rig)
+
+        // A second save of the same id without overwrite must fail — this is the data-loss
+        // protection saveRig's own doc comment promises: reusing an id should never silently
+        // destroy a previously saved rig.
+        await #expect(throws: INDIMCPClientError.self) {
+            _ = try await client.saveRig(rig)
+        }
+
+        // With overwrite explicitly set, the same id must succeed.
+        let renamed = Rig(id: rig.id, name: "Renamed", components: rig.components)
+        let overwritten = try await client.saveRig(renamed, overwrite: true)
+        #expect(overwritten == renamed)
+
+        await client.disconnect()
+    }
+
+    private static func makeRig(id: String) -> Rig {
+        Rig(
+            id: id,
             name: "INDIMCPKit Test Rig",
             components: [
                 Component(role: .camera, id: "cam1", device: "CCD Simulator", pixelsX: 1920, pixelsY: 1080),
                 Component(role: .filterWheel, id: "fw1", slots: [1: "Ha", 2: "OIII"]),
             ]
         )
+    }
 
-        let saved = try await client.saveRig(rig)
-        #expect(saved == rig)
-
-        let fetched = try await client.getRig(id: rigID)
-        #expect(fetched == rig)
-
-        let rigs = try await client.listRigs()
-        #expect(rigs.contains(RigSummary(id: rigID, name: "INDIMCPKit Test Rig")))
-
-        await client.disconnect()
+    private func connectedClient() async throws -> INDIMCPClient {
+        let urlString = ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"]!
+        let client = INDIMCPClient(endpoint: try #require(URL(string: urlString)))
+        try await client.connect()
+        return client
     }
 }
