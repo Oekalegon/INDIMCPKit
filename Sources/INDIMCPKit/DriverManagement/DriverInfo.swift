@@ -9,7 +9,14 @@ public struct DriverInfo: Codable, Sendable, Hashable {
     public let binary: String
     public let installed: Bool
 
-    public init(name: String, label: String, version: String, family: String, binary: String, installed: Bool) {
+    public init(
+        name: String,
+        label: String,
+        version: String,
+        family: String,
+        binary: String,
+        installed: Bool
+    ) {
         self.name = name
         self.label = label
         self.version = version
