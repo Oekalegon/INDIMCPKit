@@ -12,7 +12,13 @@ public struct Observatory: Codable, Sendable, Hashable {
     public let longitudeDeg: Double
     public let elevationMeters: Double
 
-    public init(id: String, name: String, latitudeDeg: Double, longitudeDeg: Double, elevationMeters: Double = 0) {
+    public init(
+        id: String,
+        name: String,
+        latitudeDeg: Double,
+        longitudeDeg: Double,
+        elevationMeters: Double = 0
+    ) {
         self.id = id
         self.name = name
         self.latitudeDeg = latitudeDeg
