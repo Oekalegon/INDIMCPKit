@@ -16,6 +16,18 @@ import Testing
 /// `downloadFrameThrowsWhenNoDownloadUrl` (a pure unit test) and by manual verification against a
 /// server with a real driver attached — see this suite's own limitation rather than a gap to fill
 /// here.
+///
+/// **Known gap, not covered here at all:** `deleteAllTransferredFrames`/`deleteAllFrames`'s actual
+/// deletion behavior. `FrameDeletionTests.swift` only covers their pre-network guard clauses
+/// (`deleteAllFrames` refusing without `acknowledgingPermanentDataLoss: true`) — the deletion
+/// logic itself was verified manually against a real server by inserting frames directly via
+/// `frame_store.save_frame` (one pre-confirmed transferred, one not) and confirming
+/// `deleteAllTransferredFrames` removed only the transferred one while `deleteAllFrames(true)`
+/// removed what remained, but that verification wasn't captured as a repeatable test — this
+/// codebase's tests only ever drive the server through its actual MCP tools, never by reaching
+/// around it into `frame_store` directly the way that manual check did. Promote this into a real
+/// test here once a real frame is producible some other way (e.g. once a driver like the CCD
+/// Simulator can actually be connected through and `capture_frame` produces one for real).
 @Suite("INDI frames (live server)")
 struct INDIFramesIntegrationTests {
     @Test(
