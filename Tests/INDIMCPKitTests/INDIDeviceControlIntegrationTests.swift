@@ -18,6 +18,14 @@ import Testing
 /// the correct `script` id and the `rigId` this suite passed in has round-tripped correctly, for
 /// every one of these fourteen thin wrappers. A wrong tool name (e.g. a typo routing `unpark` to
 /// the `"park"` script) would be caught here even though neither actually reaches real hardware.
+///
+/// Known limitation: since no run here ever reaches the point where the script engine actually
+/// substitutes `{{ ra }}`/`{{ dec }}` into a real command, this suite can't detect a same-typed
+/// argument *value* swap (e.g. `slew` accidentally sending `ra` where `dec` belongs) — both are
+/// `Double`, so the compiler gives no protection either. `argumentKeysMatchDeclaredParameters`
+/// at least locks in that the argument *keys* sent match each script's own declared parameter
+/// names (catching a renamed/misspelled key), which is the strongest check achievable without a
+/// real connected mount or a way to inspect what the script engine actually received.
 @Suite("INDI device control (live server)")
 struct INDIDeviceControlIntegrationTests {
     @Test(
@@ -68,6 +76,22 @@ struct INDIDeviceControlIntegrationTests {
 
         assertStarted("connect", try await client.connectDevice(rigId: rig.id, role: "mount"))
         assertStarted("disconnect", try await client.disconnectDevice(rigId: rig.id, role: "mount"))
+
+        await client.disconnect()
+    }
+
+    @Test(
+        "wrappers with same-typed parameter pairs send argument keys matching the script's declared parameters",
+        .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
+    )
+    func argumentKeysMatchDeclaredParameters() async throws {
+        let client = try await connectedTestClient()
+
+        let slewScript = try await client.getScript(id: "slew")
+        #expect(Set(slewScript.parameters.keys) == ["ra", "dec"])
+
+        let trackingRateScript = try await client.getScript(id: "set_custom_tracking_rate")
+        #expect(Set(trackingRateScript.parameters.keys) == ["raRateArcsecPerSec", "decRateArcsecPerSec"])
 
         await client.disconnect()
     }

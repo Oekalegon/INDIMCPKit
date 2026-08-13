@@ -1,5 +1,9 @@
 import MCP
 
+/// Raw, unguarded tool calls — no park/connection-state checking happens client-side before any
+/// of these issue a real mount command. A future `Mount` device abstraction (IMCPKIT-8) will add
+/// that; until then, callers are responsible for their own state checks (e.g. via `checkRig`)
+/// before issuing hardware commands here.
 extension INDIMCPClient {
     /// Parks the rig's mount.
     ///
