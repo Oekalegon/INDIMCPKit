@@ -8,18 +8,26 @@ import Observation
 @Observable
 final class ServerControlModel {
     private let client: INDIMCPClient
+    private let rigId: String
 
     private(set) var serverStatus: IndiServerStatus?
     private(set) var messagingStatus: MessagingStatus?
     private(set) var driverCatalog: [DriverInfo] = []
     private(set) var runningDrivers: [DriverStatus] = []
 
+    /// Every `device` name this rig's components declare (per `getRig`) — a component's `device`
+    /// is the INDI driver's own `label` (e.g. `"CCD Simulator"`), the same string
+    /// `startINDIDriver(label:)` expects, so this is exactly what the driver list should
+    /// highlight instead of making the operator hunt through the full catalog for it.
+    private(set) var rigDeviceLabels: Set<String> = []
+
     private(set) var isLoading = false
     private(set) var isBusy = false
     private(set) var errorMessage: String?
 
-    init(client: INDIMCPClient) {
+    init(client: INDIMCPClient, rigId: String) {
         self.client = client
+        self.rigId = rigId
     }
 
     func refresh() async {
@@ -30,8 +38,14 @@ final class ServerControlModel {
             async let messaging = client.getINDIMessagingStatus()
             async let catalog = client.listINDIDriverCatalog()
             async let running = client.listRunningINDIDrivers()
-            (serverStatus, messagingStatus, driverCatalog, runningDrivers) =
-                try await (server, messaging, catalog, running)
+            async let rig = client.getRig(id: rigId)
+            let (serverResult, messagingResult, catalogResult, runningResult, rigResult) =
+                try await (server, messaging, catalog, running, rig)
+            serverStatus = serverResult
+            messagingStatus = messagingResult
+            driverCatalog = catalogResult
+            runningDrivers = runningResult
+            rigDeviceLabels = Set(rigResult.components.compactMap(\.device))
         } catch {
             errorMessage = String(describing: error)
         }

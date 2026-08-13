@@ -30,6 +30,26 @@ public struct Camera: DeviceHandle {
         return try await client.coolerOff(rigId: rigId)
     }
 
+    /// Whether the cooler is currently on, going by the most recently observed `CCD_COOLER`
+    /// event on this rig's camera device — `nil` if that can't be determined (no `CCD_COOLER`
+    /// event seen yet, e.g. before INDI messaging has streamed one, or this rig's camera
+    /// component has no `device` name resolved).
+    ///
+    /// UI-oriented, not authoritative: this is only ever as fresh as the last streamed event
+    /// (`listINDIMessages` isn't a live subscription, just the most recent snapshot), the same
+    /// caveat `INDIMCPClient.isDeviceConnected` carries.
+    public func isCoolerOn() async throws -> Bool? {
+        let rig = try await client.getRig(id: rigId)
+        guard let device = rig.components.first(where: { $0.role == .camera })?.device else {
+            return nil
+        }
+        let events = try await client.listINDIMessages(device: device, limit: 20)
+        guard let latest = events.first(where: { $0.name == "CCD_COOLER" }) else {
+            return nil
+        }
+        return latest.elements?["COOLER_ON"] == "On"
+    }
+
     /// Captures a single frame. See `INDIMCPClient.captureFrame` for the full parameter set.
     public func captureFrame(
         exposureSeconds: Double,

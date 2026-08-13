@@ -9,8 +9,8 @@ import SwiftUI
 struct ServerControlView: View {
     @State private var model: ServerControlModel
 
-    init(client: INDIMCPClient) {
-        _model = State(initialValue: ServerControlModel(client: client))
+    init(client: INDIMCPClient, rigId: String) {
+        _model = State(initialValue: ServerControlModel(client: client, rigId: rigId))
     }
 
     var body: some View {
@@ -48,31 +48,25 @@ struct ServerControlView: View {
                 }
             }
 
-            Section("Drivers") {
-                if model.driverCatalog.isEmpty {
-                    Text(model.isLoading ? "Loading…" : "No drivers found in the catalog.")
+            Section("This Rig's Drivers") {
+                if model.isLoading {
+                    Text("Loading…")
+                        .foregroundStyle(.secondary)
+                } else if rigDrivers.isEmpty {
+                    Text("No component in this rig has a device name set, or none of them are in the driver catalog.")
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(model.driverCatalog.filter(\.installed), id: \.label) { driver in
-                        let running = model.isDriverRunning(label: driver.label)
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(driver.label)
-                                Text(driver.family)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Button(running ? "Stop" : "Start") {
-                                Task {
-                                    if running {
-                                        await model.stopDriver(label: driver.label)
-                                    } else {
-                                        await model.startDriver(label: driver.label)
-                                    }
-                                }
-                            }
-                            .disabled(model.isBusy)
+                    ForEach(rigDrivers, id: \.label) { driver in
+                        driverRow(driver)
+                    }
+                }
+            }
+
+            if !otherDrivers.isEmpty {
+                Section {
+                    DisclosureGroup("Other Installed Drivers (\(otherDrivers.count))") {
+                        ForEach(otherDrivers, id: \.label) { driver in
+                            driverRow(driver)
                         }
                     }
                 }
@@ -86,6 +80,38 @@ struct ServerControlView: View {
             }
         }
         .task { await model.refresh() }
+    }
+
+    private var rigDrivers: [DriverInfo] {
+        model.driverCatalog.filter { $0.installed && model.rigDeviceLabels.contains($0.label) }
+    }
+
+    private var otherDrivers: [DriverInfo] {
+        model.driverCatalog.filter { $0.installed && !model.rigDeviceLabels.contains($0.label) }
+    }
+
+    @ViewBuilder
+    private func driverRow(_ driver: DriverInfo) -> some View {
+        let running = model.isDriverRunning(label: driver.label)
+        HStack {
+            VStack(alignment: .leading) {
+                Text(driver.label)
+                Text(driver.family)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button(running ? "Stop" : "Start") {
+                Task {
+                    if running {
+                        await model.stopDriver(label: driver.label)
+                    } else {
+                        await model.startDriver(label: driver.label)
+                    }
+                }
+            }
+            .disabled(model.isBusy)
+        }
     }
 
     private func statusText(_ running: Bool?) -> String {

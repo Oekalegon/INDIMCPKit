@@ -11,7 +11,7 @@ struct DeviceTabsView: View {
 
     var body: some View {
         TabView {
-            ServerControlView(client: client)
+            ServerControlView(client: client, rigId: rigId)
                 .tabItem { Label("Server", systemImage: "server.rack") }
             MountView(client: client, rigId: rigId)
                 .tabItem { Label("Mount", systemImage: "scope") }
