@@ -32,10 +32,28 @@ final class AppModel {
         let newClient = INDIMCPClient(endpoint: url)
         do {
             try await newClient.connect()
+            try await ensureINDIServerAndMessagingRunning(newClient)
             client = newClient
             connectionStatus = .connected
         } catch {
             connectionStatus = .failed(String(describing: error))
+        }
+    }
+
+    /// Device commands go nowhere without a running `indiserver` and an active messaging stream
+    /// to receive their results — start both if they're not already up. Checks status first
+    /// rather than unconditionally calling `startINDIServer`/`startINDIMessaging`: both restart
+    /// (and briefly interrupt) an already-running session, which would be disruptive if this app
+    /// connects to a server mid-imaging-run someone else already started.
+    private func ensureINDIServerAndMessagingRunning(_ client: INDIMCPClient) async throws {
+        let serverStatus = try await client.getINDIServerStatus()
+        if !serverStatus.running {
+            _ = try await client.startINDIServer()
+        }
+
+        let messagingStatus = try await client.getINDIMessagingStatus()
+        if !messagingStatus.running {
+            _ = try await client.startINDIMessaging()
         }
     }
 
