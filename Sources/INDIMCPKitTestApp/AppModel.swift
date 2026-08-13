@@ -14,9 +14,12 @@ final class AppModel {
     }
 
     var serverURLString = "http://127.0.0.1:8000/mcp"
-    var rigId = ""
     private(set) var connectionStatus = ConnectionStatus.disconnected
     private(set) var client: INDIMCPClient?
+
+    /// The rig picked (or created) on `RigSelectionView`, after connecting. `nil` until then, even
+    /// once `isConnected` — device screens can't show until a rig is chosen.
+    var selectedRigId: String?
 
     var isConnected: Bool { connectionStatus == .connected }
 
@@ -40,5 +43,6 @@ final class AppModel {
         await client?.disconnect()
         client = nil
         connectionStatus = .disconnected
+        selectedRigId = nil
     }
 }

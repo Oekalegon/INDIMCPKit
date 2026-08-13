@@ -6,6 +6,7 @@ import SwiftUI
 struct DeviceTabsView: View {
     let client: INDIMCPClient
     let rigId: String
+    let onChangeRig: () -> Void
     let onDisconnect: () -> Void
 
     var body: some View {
@@ -19,7 +20,11 @@ struct DeviceTabsView: View {
             FocuserView(client: client, rigId: rigId)
                 .tabItem { Label("Focuser", systemImage: "camera.macro") }
         }
+        .navigationTitle("Rig: \(rigId)")
         .toolbar {
+            ToolbarItem(placement: .automatic) {
+                Button("Change Rig", action: onChangeRig)
+            }
             ToolbarItem(placement: .automatic) {
                 Button("Disconnect", action: onDisconnect)
             }

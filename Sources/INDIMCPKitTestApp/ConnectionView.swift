@@ -10,7 +10,6 @@ struct ConnectionView: View {
 
             Form {
                 TextField("Server URL", text: $model.serverURLString)
-                TextField("Rig ID", text: $model.rigId)
             }
             .disabled(isConnecting)
 
@@ -23,7 +22,7 @@ struct ConnectionView: View {
                 Button(isConnecting ? "Connecting…" : "Connect") {
                     Task { await model.connect() }
                 }
-                .disabled(isConnecting || model.rigId.isEmpty)
+                .disabled(isConnecting)
 
                 if isConnecting {
                     ProgressView()
