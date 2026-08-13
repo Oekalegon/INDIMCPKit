@@ -57,6 +57,11 @@ struct CameraView: View {
         .padding()
         .navigationTitle("Camera")
         .task { await model.refreshDeviceState() }
+        // Not scoped to "while this tab is visible": TabView on macOS keeps every tab's content
+        // view alive in the hierarchy the whole time the TabView exists, so switching away from
+        // this tab doesn't trigger onDisappear — only disconnecting/changing rig does. This
+        // subscription (and the same one on every other device tab) runs for the whole connected
+        // session, not just while the operator is actually looking at it.
         .task { await model.observableDevice.start() }
         .onDisappear { model.observableDevice.stop() }
     }
