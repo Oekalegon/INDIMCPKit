@@ -43,11 +43,18 @@ public struct Camera: DeviceHandle {
         guard let device = rig.components.first(where: { $0.role == .camera })?.device else {
             return nil
         }
-        let events = try await client.listINDIMessages(device: device, limit: 20)
-        guard let latest = events.first(where: { $0.name == "CCD_COOLER" }) else {
-            return nil
+        // Widening limits, not a single fixed one: CCD_COOLER only fires when the switch
+        // changes, but CCD_TEMPERATURE (and anything else on this device) can update far more
+        // often — most visibly during coolCamera's own wait_for step, exactly when a caller is
+        // most likely to be asking this. A too-small window would let those crowd CCD_COOLER out
+        // and report "unknown" for a state that's actually still perfectly well known.
+        for limit in [20, 100, 500] {
+            let events = try await client.listINDIMessages(device: device, limit: limit)
+            if let latest = events.first(where: { $0.name == "CCD_COOLER" }) {
+                return latest.elements?["COOLER_ON"] == "On"
+            }
         }
-        return latest.elements?["COOLER_ON"] == "On"
+        return nil
     }
 
     /// Captures a single frame. See `INDIMCPClient.captureFrame` for the full parameter set.
