@@ -27,4 +27,10 @@ extension DeviceHandle {
     public func disconnect() async throws -> ScriptRunStarted {
         try await client.disconnectDevice(rigId: rigId, role: role.rawValue)
     }
+
+    /// Whether this rig currently has a connected component for `role` — see
+    /// `INDIMCPClient.isDeviceConnected` for what this can and can't guarantee.
+    public func isConnected() async throws -> Bool {
+        try await client.isDeviceConnected(role: role, rigId: rigId)
+    }
 }

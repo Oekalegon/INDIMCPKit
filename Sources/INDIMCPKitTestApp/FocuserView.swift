@@ -5,6 +5,7 @@ struct FocuserView: View {
     let focuser: Focuser
 
     @State private var runner: CommandRunner
+    @State private var isConnected = false
     @State private var position = "0"
 
     init(client: INDIMCPClient, rigId: String) {
@@ -16,8 +17,8 @@ struct FocuserView: View {
         Form {
             Section("Connection") {
                 HStack {
-                    Button("Connect") { Task { await runner.run(focuser.connect) } }
-                    Button("Disconnect") { Task { await runner.run(focuser.disconnect) } }
+                    Button("Connect") { Task { await run(focuser.connect) } }
+                    Button("Disconnect") { Task { await run(focuser.disconnect) } }
                 }
             }
             .disabled(runner.isBusy)
@@ -26,13 +27,13 @@ struct FocuserView: View {
                 TextField("Absolute position", text: $position)
                 Button("Set Focus Position") {
                     Task {
-                        await runner.run {
+                        await run {
                             try await focuser.setFocusPosition(Int(position) ?? 0)
                         }
                     }
                 }
             }
-            .disabled(runner.isBusy)
+            .disabled(runner.isBusy || !isConnected)
 
             Section("Status") {
                 CommandStatusView(state: runner.state)
@@ -40,5 +41,15 @@ struct FocuserView: View {
         }
         .padding()
         .navigationTitle("Focuser")
+        .task { await refreshConnectionState() }
+    }
+
+    private func run(_ start: @escaping @Sendable () async throws -> ScriptRunStarted) async {
+        await runner.run(start)
+        await refreshConnectionState()
+    }
+
+    private func refreshConnectionState() async {
+        isConnected = (try? await focuser.isConnected()) ?? isConnected
     }
 }

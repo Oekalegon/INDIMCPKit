@@ -5,6 +5,7 @@ struct FilterWheelView: View {
     let filterWheel: FilterWheel
 
     @State private var runner: CommandRunner
+    @State private var isConnected = false
     @State private var filterName = ""
 
     init(client: INDIMCPClient, rigId: String) {
@@ -16,8 +17,8 @@ struct FilterWheelView: View {
         Form {
             Section("Connection") {
                 HStack {
-                    Button("Connect") { Task { await runner.run(filterWheel.connect) } }
-                    Button("Disconnect") { Task { await runner.run(filterWheel.disconnect) } }
+                    Button("Connect") { Task { await run(filterWheel.connect) } }
+                    Button("Disconnect") { Task { await run(filterWheel.disconnect) } }
                 }
             }
             .disabled(runner.isBusy)
@@ -25,9 +26,9 @@ struct FilterWheelView: View {
             Section("Filter") {
                 TextField("Filter name", text: $filterName)
                 Button("Select Filter") {
-                    Task { await runner.run { try await filterWheel.selectFilter(filterName) } }
+                    Task { await run { try await filterWheel.selectFilter(filterName) } }
                 }
-                .disabled(filterName.isEmpty || runner.isBusy)
+                .disabled(filterName.isEmpty || runner.isBusy || !isConnected)
             }
 
             Section("Status") {
@@ -36,5 +37,15 @@ struct FilterWheelView: View {
         }
         .padding()
         .navigationTitle("Filter Wheel")
+        .task { await refreshConnectionState() }
+    }
+
+    private func run(_ start: @escaping @Sendable () async throws -> ScriptRunStarted) async {
+        await runner.run(start)
+        await refreshConnectionState()
+    }
+
+    private func refreshConnectionState() async {
+        isConnected = (try? await filterWheel.isConnected()) ?? isConnected
     }
 }

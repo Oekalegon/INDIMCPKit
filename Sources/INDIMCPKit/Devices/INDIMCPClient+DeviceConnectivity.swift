@@ -1,4 +1,17 @@
 extension INDIMCPClient {
+    /// Whether rig `rigId` has at least one currently-connected component declaring `role` —
+    /// the same connectivity check `Mount`/`Camera`/`FilterWheel`/`Focuser` run internally before
+    /// issuing a command (see `ensureConnected`), exposed as its own call for UI that wants to
+    /// reflect (and gate on) connection state up front, rather than only discovering it from a
+    /// failed command.
+    ///
+    /// Same caveats as `ensureConnected`: a TOCTOU-prone snapshot, not cached, and requires INDI
+    /// messaging to already be running server-side or this throws `INDIMCPClientError` rather
+    /// than returning `false`.
+    public func isDeviceConnected(role: Role, rigId: String) async throws -> Bool {
+        try await !roleConnectivity(role: role, rigId: rigId).connectedComponentIds.isEmpty
+    }
+
     /// Best-effort check that rig `rigId` has at least one currently-connected component
     /// declaring `role`, before `Mount`/`Camera`/`FilterWheel`/`Focuser` issue a command for it.
     ///
@@ -20,16 +33,29 @@ extension INDIMCPClient {
     /// all — confirmed against the real server. A caller catching only `DeviceControlError`
     /// around a `Mount`/`Camera`/`FilterWheel`/`Focuser` call would miss this case.
     func ensureConnected(role: Role, rigId: String) async throws {
+        let connectivity = try await roleConnectivity(role: role, rigId: rigId)
+        guard !connectivity.componentIds.isEmpty else {
+            throw DeviceControlError.noComponentForRole(role: role, rigId: rigId)
+        }
+        guard !connectivity.connectedComponentIds.isEmpty else {
+            throw DeviceControlError.deviceNotConnected(role: role, rigId: rigId)
+        }
+    }
+
+    private struct RoleConnectivity {
+        let componentIds: [String]
+        let connectedComponentIds: [String]
+    }
+
+    private func roleConnectivity(role: Role, rigId: String) async throws -> RoleConnectivity {
         let rig = try await getRig(id: rigId)
         let componentIds = rig.components.filter { $0.role == role }.map(\.id)
         guard !componentIds.isEmpty else {
-            throw DeviceControlError.noComponentForRole(role: role, rigId: rigId)
+            return RoleConnectivity(componentIds: [], connectedComponentIds: [])
         }
 
         let check = try await checkRig(id: rigId)
         let connectedComponentIds = componentIds.filter { check.present.contains($0) }
-        guard !connectedComponentIds.isEmpty else {
-            throw DeviceControlError.deviceNotConnected(role: role, rigId: rigId)
-        }
+        return RoleConnectivity(componentIds: componentIds, connectedComponentIds: connectedComponentIds)
     }
 }
