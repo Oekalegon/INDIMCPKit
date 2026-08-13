@@ -41,7 +41,11 @@ between the kit it was built against and the server it's talking to.
   - **Focuser** — set focus position
   - **`getDeviceProperties`** — a full snapshot of every property's current type/state/elements on
     a device, queried live from `indiserver` (with a `refreshed` flag if it had to fall back to a
-    cached reading) — the basis for keeping client-side device state in sync (IMCPKIT-17).
+    cached reading) — the basis for keeping client-side device state in sync.
+  - **`ObservableDevice`** — an `@Observable`, rig-scoped device handle (any role — `Mount`,
+    `Camera`, `FilterWheel`, `Focuser`) that keeps its `properties` live in memory: a full
+    `getDeviceProperties` snapshot on `start()` and periodically thereafter (a safety net, since
+    the live stream below is best-effort), corrected in between by `messageEvents`.
   - **Event streams** — `messageEvents`/`scriptEvents` subscribe to the server's live
     `indi://messages`/`indi://scripts` resources (an `AsyncThrowingStream` per stream, scoped to a
     device/run if wanted); `getEvents` queries the durable event log to catch up on what a
