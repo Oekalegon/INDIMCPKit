@@ -44,14 +44,15 @@ public final class ObservableDevice: DeviceHandle {
     /// point since the last `start()`.
     public private(set) var lastError: String?
 
+    private var startTask: Task<Void, Never>?
     private var subscriptionTask: Task<Void, Never>?
     private var resyncTask: Task<Void, Never>?
 
     // No deinit cancelling these: `deinit` runs nonisolated even for a @MainActor class, and
-    // can't touch MainActor-isolated stored properties to cancel them. Both tasks capture `self`
-    // weakly, so they stop mutating anything once this instance is gone — worst case they linger
-    // briefly until their next loop iteration notices `self` is nil, not a real leak of `self`
-    // itself. Call `stop()` explicitly before discarding an instance if you need the
+    // can't touch MainActor-isolated stored properties to cancel them. Every task here captures
+    // `self` weakly, so they stop mutating anything once this instance is gone — worst case they
+    // linger briefly until their next loop iteration notices `self` is nil, not a real leak of
+    // `self` itself. Call `stop()` explicitly before discarding an instance if you need the
     // subscription/resync to end deterministically rather than opportunistically.
 
     public init(client: INDIMCPClient, rigId: String, role: Role) {
@@ -62,34 +63,70 @@ public final class ObservableDevice: DeviceHandle {
 
     /// Resolves `role` to a device name via the rig, takes a full property snapshot, then starts
     /// applying live updates as they arrive and re-snapshotting every `resyncInterval` as a safety
-    /// net. Safe to call again — e.g. after reconnecting — which cancels and replaces any
-    /// still-running subscription/resync from a previous call.
+    /// net. Safe to call again — e.g. after reconnecting — which cancels and replaces *everything*
+    /// still in flight from a previous call, including one still resolving the device name or
+    /// taking its initial snapshot, not just an already-running subscription/resync: without that,
+    /// a second call landing before the first had gotten that far couldn't cancel anything (there
+    /// was nothing yet to cancel), and whichever call's setup finished last would silently
+    /// overwrite the other's `subscriptionTask`/`resyncTask` references — orphaning the other
+    /// call's subscription and resync loop permanently, since `stop()` can only reach whatever the
+    /// stored references currently point at.
     ///
     /// `resyncInterval` of `nil` disables the periodic safety-net resync entirely, relying purely
     /// on `messageEvents`; not recommended for anything you actually depend on staying accurate
     /// over a long session, since that stream can silently miss updates (`docs/Design.md#event-
     /// streams`) with nothing to notice on its own.
     public func start(resyncInterval: Duration? = .seconds(300)) async {
+        startTask?.cancel()
         subscriptionTask?.cancel()
         resyncTask?.cancel()
         lastError = nil
 
-        let device: String
-        do {
-            let rig = try await client.getRig(id: rigId)
-            guard let resolvedDevice = rig.components.first(where: { $0.role == role })?.device else {
-                lastError = "No \(role) component with a device name on rig '\(rigId)'."
+        let task = Task { [weak self] in
+            guard let self else { return }
+
+            let device: String
+            do {
+                let rig = try await self.client.getRig(id: self.rigId)
+                guard let resolvedDevice = rig.components.first(where: { $0.role == self.role })?.device else {
+                    self.lastError = "No \(self.role) component with a device name on rig '\(self.rigId)'."
+                    return
+                }
+                device = resolvedDevice
+            } catch {
+                if !Task.isCancelled {
+                    self.lastError = String(describing: error)
+                }
                 return
             }
-            device = resolvedDevice
-        } catch {
-            lastError = String(describing: error)
-            return
+            guard !Task.isCancelled else { return }
+
+            self.deviceName = device
+            await self.refreshSnapshot(device: device)
+            guard !Task.isCancelled else { return }
+
+            self.beginSubscription(device: device)
+            if let resyncInterval {
+                self.beginResync(device: device, interval: resyncInterval)
+            }
         }
+        startTask = task
+        await task.value
+    }
 
-        deviceName = device
-        await refreshSnapshot(device: device)
+    /// Stops the live subscription and periodic resync (and any still-in-flight `start()` call).
+    /// `properties`/`deviceName` are left as they last were — this doesn't clear observed state,
+    /// just stops keeping it fresh.
+    public func stop() {
+        startTask?.cancel()
+        startTask = nil
+        subscriptionTask?.cancel()
+        subscriptionTask = nil
+        resyncTask?.cancel()
+        resyncTask = nil
+    }
 
+    private func beginSubscription(device: String) {
         subscriptionTask = Task { [weak self] in
             guard let self else { return }
             do {
@@ -106,25 +143,16 @@ public final class ObservableDevice: DeviceHandle {
                 }
             }
         }
-
-        if let resyncInterval {
-            resyncTask = Task { [weak self] in
-                while !Task.isCancelled {
-                    try? await Task.sleep(for: resyncInterval)
-                    guard !Task.isCancelled, let self else { return }
-                    await self.refreshSnapshot(device: device)
-                }
-            }
-        }
     }
 
-    /// Stops the live subscription and periodic resync. `properties`/`deviceName` are left as
-    /// they last were — this doesn't clear observed state, just stops keeping it fresh.
-    public func stop() {
-        subscriptionTask?.cancel()
-        subscriptionTask = nil
-        resyncTask?.cancel()
-        resyncTask = nil
+    private func beginResync(device: String, interval: Duration) {
+        resyncTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: interval)
+                guard !Task.isCancelled, let self else { return }
+                await self.refreshSnapshot(device: device)
+            }
+        }
     }
 
     private func refreshSnapshot(device: String) async {
