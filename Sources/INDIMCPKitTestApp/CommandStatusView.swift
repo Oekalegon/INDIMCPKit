@@ -6,22 +6,42 @@ import SwiftUI
 struct CommandStatusView: View {
     let state: CommandRunner.State
 
+    /// Cancels the run currently backing `state` — offered whenever a run could still be going,
+    /// since polling itself has no give-up bound (a real command can legitimately take minutes)
+    /// and this is the operator's only way to stop watching (and actually stop, server-side) one
+    /// that's stuck or just taking longer than wanted.
+    var onCancel: (() -> Void)?
+
     var body: some View {
         switch state {
         case .idle:
             EmptyView()
         case .starting:
-            Label("Starting…", systemImage: "hourglass")
-                .foregroundStyle(.secondary)
+            HStack {
+                Label("Starting…", systemImage: "hourglass")
+                    .foregroundStyle(.secondary)
+                cancelButton
+            }
         case .running(let status):
-            Label(description(for: status), systemImage: "arrow.triangle.2.circlepath")
-                .foregroundStyle(.secondary)
+            HStack {
+                Label(description(for: status), systemImage: "arrow.triangle.2.circlepath")
+                    .foregroundStyle(.secondary)
+                cancelButton
+            }
         case .finished(let status):
             Label(description(for: status), systemImage: symbol(for: status))
                 .foregroundStyle(color(for: status))
         case .failed(let message):
             Label(message, systemImage: "xmark.octagon")
                 .foregroundStyle(.red)
+        }
+    }
+
+    @ViewBuilder
+    private var cancelButton: some View {
+        if let onCancel {
+            Spacer()
+            Button("Cancel", action: onCancel)
         }
     }
 

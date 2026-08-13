@@ -47,7 +47,7 @@ struct MountView: View {
             .disabled(runner.isBusy || !isConnected)
 
             Section("Status") {
-                CommandStatusView(state: runner.state)
+                CommandStatusView(state: runner.state) { Task { await runner.cancel() } }
             }
         }
         .padding()

@@ -19,6 +19,7 @@ final class CommandRunner {
     private(set) var state = State.idle
     private let client: INDIMCPClient
     private var activeRun: Task<Void, Never>?
+    private var currentRunId: String?
 
     /// Whether a command is currently starting or being polled — callers should disable their
     /// action buttons while this is true, since firing a second command on top of an in-flight
@@ -35,10 +36,16 @@ final class CommandRunner {
     }
 
     /// Runs `start`, then polls the resulting run's status until it reaches a terminal state
-    /// (`ScriptRunStatus.isTerminal`) or polling gives up after a fixed number of attempts. Polls
-    /// itself, rather than calling `INDIMCPClient.waitForTerminalStatus`, because it needs to
-    /// publish each intermediate status for the UI — `waitForTerminalStatus` only reports the
-    /// final one.
+    /// (`ScriptRunStatus.isTerminal`). Polls itself, rather than calling
+    /// `INDIMCPClient.waitForTerminalStatus`, because it needs to publish each intermediate status
+    /// for the UI — `waitForTerminalStatus` only reports the final one.
+    ///
+    /// No client-side give-up bound: real commands legitimately vary from sub-second (a filter
+    /// change) to several minutes (`cool_camera` defaults to a 300s timeout, and can need longer
+    /// on a hot day) to a long exposure's caller-chosen duration, so any fixed cap is either too
+    /// short for a real run or pointlessly long for a fast one. The run keeps going server-side
+    /// regardless of whether this app is watching it, and its own script-level timeout is what
+    /// actually bounds it; this only stops watching early if cancelled by a newer command.
     ///
     /// Cancels any still-in-flight previous run first: without this, two overlapping runs' polls
     /// both keep writing to `state` as their responses arrive, and the UI flip-flops between
@@ -47,10 +54,12 @@ final class CommandRunner {
     func run(_ start: @escaping @Sendable () async throws -> ScriptRunStarted) async {
         activeRun?.cancel()
         state = .starting
+        currentRunId = nil
         let task = Task { [weak self] in
             guard let self else { return }
             do {
                 let started = try await start()
+                self.currentRunId = started.runId
                 await self.poll(runId: started.runId)
             } catch {
                 if !Task.isCancelled {
@@ -62,8 +71,30 @@ final class CommandRunner {
         await task.value
     }
 
+    /// Cancels the currently in-flight run, both locally (stop polling) and server-side (via
+    /// `cancelScript`, so the run actually stops rather than continuing unwatched) — the
+    /// operator's way out now that `poll` has no built-in give-up bound.
+    ///
+    /// `cancelScript` itself can block until the run's current step finishes (see its doc
+    /// comment) — that's surfaced here as `.running`/`.finished` updating normally rather than
+    /// this call hanging silently, since it's really just a targeted `run`-like call of its own.
+    func cancel() async {
+        activeRun?.cancel()
+        guard let runId = currentRunId else {
+            state = .idle
+            return
+        }
+        state = .starting
+        do {
+            let status = try await client.cancelScript(runId: runId)
+            state = .finished(status)
+        } catch {
+            state = .failed(String(describing: error))
+        }
+    }
+
     private func poll(runId: String) async {
-        for _ in 0..<120 {
+        while true {
             if Task.isCancelled { return }
             do {
                 let status = try await client.getScriptStatus(runId: runId)
@@ -80,9 +111,6 @@ final class CommandRunner {
                 return
             }
             try? await Task.sleep(for: .milliseconds(500))
-        }
-        if !Task.isCancelled {
-            state = .failed("Gave up polling '\(runId)' for a terminal status.")
         }
     }
 }

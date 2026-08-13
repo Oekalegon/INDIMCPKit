@@ -32,7 +32,7 @@ struct FilterWheelView: View {
             }
 
             Section("Status") {
-                CommandStatusView(state: runner.state)
+                CommandStatusView(state: runner.state) { Task { await runner.cancel() } }
             }
         }
         .padding()
