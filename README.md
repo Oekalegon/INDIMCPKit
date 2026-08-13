@@ -39,6 +39,10 @@ between the kit it was built against and the server it's talking to.
     (gain/offset/ROI)
   - **FilterWheel** — select filter
   - **Focuser** — set focus position
+  - **Event streams** — `messageEvents`/`scriptEvents` subscribe to the server's live
+    `indi://messages`/`indi://scripts` resources (an `AsyncThrowingStream` per stream, scoped to a
+    device/run if wanted); `getEvents` queries the durable event log to catch up on what a
+    disconnected client missed, since the live streams are best-effort/live-only.
 - **INDIMCPKit test app** (macOS, SwiftUI) — one screen per device type showing its default tool connections in
   action (e.g. Mount: park/unpark/track/slew; Camera: cooling + single exposure).
 
