@@ -16,9 +16,9 @@ extension INDIMCPClient {
     /// temperature and `exposureSeconds` need to match the light frames this calibrates.
     public func captureDarkSequence(
         rigId: String,
-        targetTempC: Double = -10,
         exposureSeconds: Double,
         count: Int,
+        targetTempC: Double = -10,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
         try await runScript(
@@ -39,8 +39,8 @@ extension INDIMCPClient {
     /// frame is the shortest exposure the camera supports, shutter closed.
     public func captureBiasSequence(
         rigId: String,
-        exposureSeconds: Double = 0,
         count: Int,
+        exposureSeconds: Double = 0,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
         try await runScript(
@@ -85,12 +85,12 @@ extension INDIMCPClient {
         rigId: String,
         ra: Double,
         dec: Double,
-        objectName: String? = nil,
         filterName: String,
         focusPosition: Int,
-        targetTempC: Double = -10,
         exposureSeconds: Double,
         count: Int,
+        objectName: String? = nil,
+        targetTempC: Double = -10,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
         var parameters: [String: Value] = [
