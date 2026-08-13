@@ -3,9 +3,9 @@
 /// Obtained via `INDIMCPClient.filterWheel(rigId:)`, not constructed directly. See `Mount`'s doc
 /// comment for the connectivity-check behavior shared by every device-type handle.
 public struct FilterWheel: DeviceHandle {
-    let client: INDIMCPClient
+    public let client: INDIMCPClient
     public let rigId: String
-    let role: Role = .filterWheel
+    public let role: Role = .filterWheel
 
     init(client: INDIMCPClient, rigId: String) {
         self.client = client
