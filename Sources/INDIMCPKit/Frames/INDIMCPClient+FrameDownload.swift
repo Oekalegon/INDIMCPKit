@@ -18,7 +18,7 @@ extension INDIMCPClient {
         guard let downloadUrlString = frame.downloadUrl, let url = URL(string: downloadUrlString) else {
             throw INDIMCPClientError.frameNotDownloadable(frameId: frame.frameId)
         }
-        try await Self.download(from: url, to: destination, frameId: frame.frameId)
+        try await download(from: reachableURL(for: url), to: destination, frameId: frame.frameId)
     }
 
     /// Looks up `frameId`'s current metadata via `getFrameMetadata`, then downloads it — a
@@ -29,7 +29,7 @@ extension INDIMCPClient {
         try await downloadFrame(metadata, to: destination)
     }
 
-    private static func download(from url: URL, to destination: URL, frameId: String) async throws {
+    private func download(from url: URL, to destination: URL, frameId: String) async throws {
         let (temporaryURL, response) = try await URLSession.shared.download(from: url)
         guard let httpResponse = response as? HTTPURLResponse, (200..<300).contains(httpResponse.statusCode) else {
             let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1

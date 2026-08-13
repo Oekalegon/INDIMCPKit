@@ -11,6 +11,7 @@ import MCP
 public final class INDIMCPClient: Sendable {
     private let client: Client
     private let transport: HTTPClientTransport
+    private let endpoint: URL
 
     /// Creates a client pointed at an INDIMCP-server instance. Call `connect()` before issuing
     /// any tool calls.
@@ -26,6 +27,7 @@ public final class INDIMCPClient: Sendable {
     ) {
         self.client = Client(name: clientName, version: clientVersion)
         self.transport = HTTPClientTransport(endpoint: endpoint)
+        self.endpoint = endpoint
     }
 
     /// Connects to the server and performs the MCP initialization handshake.
@@ -179,6 +181,28 @@ public final class INDIMCPClient: Sendable {
             throw INDIMCPClientError.missingResourceContent(uri: uri)
         }
         return try JSONDecoder().decode(Output.self, from: Data(text.utf8))
+    }
+
+    /// Substitutes this client's own connection host for `url`'s host — used by `downloadFrame`
+    /// on a frame's `downloadUrl`.
+    ///
+    /// INDIMCP-server computes `downloadUrl` from its own `socket.gethostname()` (an mDNS
+    /// `.local` name, confirmed against the server's `_frame_download_url` doc comment), which
+    /// isn't reliably resolvable from every client's network — mDNS can be disabled, blocked
+    /// across subnets, or simply not configured — even though the exact same server is already
+    /// reachable at whatever host this client used to connect via MCP in the first place (`endpoint`).
+    /// Swapping in that already-proven-reachable host, while keeping `url`'s own scheme/port/path
+    /// exactly as the server returned them, sidesteps hostname-resolution failures entirely
+    /// without needing any server-side change. A no-op if the hosts already match.
+    func reachableURL(for url: URL) -> URL {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+            let endpointHost = endpoint.host,
+            components.host != endpointHost
+        else {
+            return url
+        }
+        components.host = endpointHost
+        return components.url ?? url
     }
 
     private func structuredContent(forToolNamed name: String, arguments: [String: Value]?) async throws -> Value {
