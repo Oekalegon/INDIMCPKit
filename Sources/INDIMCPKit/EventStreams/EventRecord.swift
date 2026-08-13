@@ -40,17 +40,12 @@ extension EventRecord {
     /// Decodes `payload` as `IndiEvent` — only meaningful when `stream == .messages`; throws a
     /// decoding error otherwise, since a scripting-layer payload won't match `IndiEvent`'s shape.
     public func decodedMessage() throws -> IndiEvent {
-        try Self.decode(IndiEvent.self, from: payload)
+        try decodeValue(IndiEvent.self, from: payload)
     }
 
     /// Decodes `payload` as `ScriptRunStatus` — only meaningful when `stream == .scripts`; throws
     /// a decoding error otherwise.
     public func decodedScriptStatus() throws -> ScriptRunStatus {
-        try Self.decode(ScriptRunStatus.self, from: payload)
-    }
-
-    private static func decode<Output: Decodable>(_ type: Output.Type, from value: Value) throws -> Output {
-        let data = try JSONEncoder().encode(value)
-        return try JSONDecoder().decode(Output.self, from: data)
+        try decodeValue(ScriptRunStatus.self, from: payload)
     }
 }

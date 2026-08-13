@@ -103,8 +103,7 @@ public final class INDIMCPClient: Sendable {
     }
 
     private static func decode<Output: Decodable>(_ type: Output.Type, from value: Value) throws -> Output {
-        let data = try JSONEncoder().encode(value)
-        return try JSONDecoder().decode(Output.self, from: data)
+        try decodeValue(type, from: value)
     }
 
     /// Subscribes to the resource at `uri` and returns a stream that yields its content — decoded
@@ -129,9 +128,13 @@ public final class INDIMCPClient: Sendable {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    try await self.client.subscribeToResource(uri: uri)
-                    let envelope = try await self.readResourceContent(uri: uri, decoding: Envelope.self)
-                    continuation.yield(transform(envelope))
+                    // Registered before subscribing/reading, not after: a notification that
+                    // arrived in the gap between the initial read and registering the handler
+                    // would otherwise be silently missed until the *next* one, which for a
+                    // stream that only updates once or twice more could mean missing its
+                    // terminal state entirely. Registering first costs nothing — the server
+                    // can't publish a notification for a URI this session hasn't subscribed to
+                    // yet, so there's no risk of the handler firing before it's meaningful.
                     await self.client.onNotification(ResourceUpdatedNotification.self) { message in
                         guard message.params.uri == uri else { return }
                         do {
@@ -141,6 +144,9 @@ public final class INDIMCPClient: Sendable {
                             continuation.finish(throwing: error)
                         }
                     }
+                    try await self.client.subscribeToResource(uri: uri)
+                    let envelope = try await self.readResourceContent(uri: uri, decoding: Envelope.self)
+                    continuation.yield(transform(envelope))
                 } catch {
                     continuation.finish(throwing: error)
                 }
