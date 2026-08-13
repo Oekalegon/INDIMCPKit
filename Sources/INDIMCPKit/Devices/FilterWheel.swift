@@ -2,24 +2,14 @@
 ///
 /// Obtained via `INDIMCPClient.filterWheel(rigId:)`, not constructed directly. See `Mount`'s doc
 /// comment for the connectivity-check behavior shared by every device-type handle.
-public struct FilterWheel: Sendable {
-    private let client: INDIMCPClient
+public struct FilterWheel: DeviceHandle {
+    let client: INDIMCPClient
     public let rigId: String
+    let role: Role = .filterWheel
 
     init(client: INDIMCPClient, rigId: String) {
         self.client = client
         self.rigId = rigId
-    }
-
-    /// Connects the rig's filter wheel device. No connectivity check first — that's the point of
-    /// this call.
-    public func connect() async throws -> ScriptRunStarted {
-        try await client.connectDevice(rigId: rigId, role: Role.filterWheel.rawValue)
-    }
-
-    /// Disconnects the rig's filter wheel device.
-    public func disconnect() async throws -> ScriptRunStarted {
-        try await client.disconnectDevice(rigId: rigId, role: Role.filterWheel.rawValue)
     }
 
     /// Selects a filter by name, matching the rig's configured `filterWheel` slots map. See

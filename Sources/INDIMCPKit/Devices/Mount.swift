@@ -8,24 +8,14 @@
 /// itself needs INDI messaging running server-side, so a call here can also throw
 /// `INDIMCPClientError` (not just `DeviceControlError`) if `startINDIMessaging()` hasn't been
 /// called yet — see `ensureConnected`'s doc comment.
-public struct Mount: Sendable {
-    private let client: INDIMCPClient
+public struct Mount: DeviceHandle {
+    let client: INDIMCPClient
     public let rigId: String
+    let role: Role = .mount
 
     init(client: INDIMCPClient, rigId: String) {
         self.client = client
         self.rigId = rigId
-    }
-
-    /// Connects the rig's mount device. No connectivity check first — that's the point of this
-    /// call.
-    public func connect() async throws -> ScriptRunStarted {
-        try await client.connectDevice(rigId: rigId, role: Role.mount.rawValue)
-    }
-
-    /// Disconnects the rig's mount device.
-    public func disconnect() async throws -> ScriptRunStarted {
-        try await client.disconnectDevice(rigId: rigId, role: Role.mount.rawValue)
     }
 
     /// Parks the mount.

@@ -2,24 +2,14 @@
 ///
 /// Obtained via `INDIMCPClient.focuser(rigId:)`, not constructed directly. See `Mount`'s doc
 /// comment for the connectivity-check behavior shared by every device-type handle.
-public struct Focuser: Sendable {
-    private let client: INDIMCPClient
+public struct Focuser: DeviceHandle {
+    let client: INDIMCPClient
     public let rigId: String
+    let role: Role = .focuser
 
     init(client: INDIMCPClient, rigId: String) {
         self.client = client
         self.rigId = rigId
-    }
-
-    /// Connects the rig's focuser device. No connectivity check first — that's the point of this
-    /// call.
-    public func connect() async throws -> ScriptRunStarted {
-        try await client.connectDevice(rigId: rigId, role: Role.focuser.rawValue)
-    }
-
-    /// Disconnects the rig's focuser device.
-    public func disconnect() async throws -> ScriptRunStarted {
-        try await client.disconnectDevice(rigId: rigId, role: Role.focuser.rawValue)
     }
 
     /// Moves the focuser to an absolute position. Checked server-side against the rig

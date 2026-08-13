@@ -2,24 +2,14 @@
 ///
 /// Obtained via `INDIMCPClient.camera(rigId:)`, not constructed directly. See `Mount`'s doc
 /// comment for the connectivity-check behavior shared by every device-type handle.
-public struct Camera: Sendable {
-    private let client: INDIMCPClient
+public struct Camera: DeviceHandle {
+    let client: INDIMCPClient
     public let rigId: String
+    let role: Role = .camera
 
     init(client: INDIMCPClient, rigId: String) {
         self.client = client
         self.rigId = rigId
-    }
-
-    /// Connects the rig's camera device. No connectivity check first — that's the point of this
-    /// call.
-    public func connect() async throws -> ScriptRunStarted {
-        try await client.connectDevice(rigId: rigId, role: Role.camera.rawValue)
-    }
-
-    /// Disconnects the rig's camera device.
-    public func disconnect() async throws -> ScriptRunStarted {
-        try await client.disconnectDevice(rigId: rigId, role: Role.camera.rawValue)
     }
 
     /// Cools the camera to `targetTempC` and waits for it to stabilize.
