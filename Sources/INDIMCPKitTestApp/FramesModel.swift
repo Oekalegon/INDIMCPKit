@@ -61,6 +61,10 @@ final class FramesModel {
     /// there's no extension to recover here beyond guessing; `.fits` matches every built-in
     /// capture script's own convention.
     func download(_ frame: FrameMetadataResponse) async {
+        // Guarded and set synchronously (no await before this point), so a rapid double-tap on
+        // the same row's Download button can't schedule two overlapping downloads for the same
+        // frame before the first one's .downloading state has a chance to disable the button.
+        guard downloadState(for: frame) != .downloading else { return }
         downloadStates[frame.frameId] = .downloading
 
         guard let downloadsDirectory = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first

@@ -84,10 +84,12 @@ private struct FrameRow: View {
             Label("Saved to \(destination.lastPathComponent), not confirmed: \(reason)", systemImage: "exclamationmark.triangle")
                 .font(.caption)
                 .foregroundStyle(.orange)
+                .lineLimit(2)
         case .failed(let message):
             Label(message, systemImage: "xmark.octagon")
                 .font(.caption)
                 .foregroundStyle(.red)
+                .lineLimit(2)
         }
     }
 
