@@ -13,6 +13,8 @@ struct DeviceTabsView: View {
         TabView {
             ServerControlView(client: client, rigId: rigId)
                 .tabItem { Label("Server", systemImage: "server.rack") }
+            FramesView(client: client)
+                .tabItem { Label("Frames", systemImage: "photo.on.rectangle") }
             MountView(client: client, rigId: rigId)
                 .tabItem { Label("Mount", systemImage: "scope") }
             CameraView(client: client, rigId: rigId)
