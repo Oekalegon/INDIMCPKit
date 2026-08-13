@@ -32,7 +32,7 @@ final class CommandRunner {
             let started = try await start()
             await poll(runId: started.runId)
         } catch {
-            state = .failed(error.localizedDescription)
+            state = .failed(String(describing: error))
         }
     }
 
@@ -46,7 +46,7 @@ final class CommandRunner {
                 }
                 state = .running(status)
             } catch {
-                state = .failed(error.localizedDescription)
+                state = .failed(String(describing: error))
                 return
             }
             try? await Task.sleep(for: .milliseconds(500))

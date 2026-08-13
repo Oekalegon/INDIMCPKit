@@ -32,7 +32,7 @@ final class AppModel {
             client = newClient
             connectionStatus = .connected
         } catch {
-            connectionStatus = .failed(error.localizedDescription)
+            connectionStatus = .failed(String(describing: error))
         }
     }
 
