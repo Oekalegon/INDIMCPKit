@@ -42,6 +42,12 @@ extension INDIMCPClient {
     }
 
     /// Cancels a run started by `runScript`, waiting for it to actually stop.
+    ///
+    /// This can block for as long as the run's current step takes to finish — INDIMCP-server
+    /// only checks for cancellation between steps, not preemptively mid-step, so cancelling
+    /// during a long `capture_frame` exposure won't return until that exposure completes.
+    /// Callers needing a bounded wait should race this against their own timeout, e.g. via a
+    /// child `Task` cancelled after a deadline.
     public func cancelScript(runId: String) async throws -> ScriptRunStatus {
         try await callToolUnion(
             "cancel_script",
