@@ -77,9 +77,13 @@ private struct FrameRow: View {
         case .downloading:
             EmptyView()
         case .succeeded(let destination):
-            Label("Saved to \(destination.lastPathComponent)", systemImage: "checkmark.circle")
+            Label("Saved to \(destination.lastPathComponent) and confirmed", systemImage: "checkmark.circle")
                 .font(.caption)
                 .foregroundStyle(.green)
+        case .downloadedNotConfirmed(let destination, let reason):
+            Label("Saved to \(destination.lastPathComponent), not confirmed: \(reason)", systemImage: "exclamationmark.triangle")
+                .font(.caption)
+                .foregroundStyle(.orange)
         case .failed(let message):
             Label(message, systemImage: "xmark.octagon")
                 .font(.caption)
