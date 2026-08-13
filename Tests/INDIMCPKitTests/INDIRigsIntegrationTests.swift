@@ -24,7 +24,7 @@ struct INDIRigsIntegrationTests {
         .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
     )
     func saveGetAndList() async throws {
-        let client = try await connectedClient()
+        let client = try await connectedTestClient()
 
         let rig = Self.makeRig(id: "indimcpkit-test-\(UUID().uuidString)")
 
@@ -45,7 +45,7 @@ struct INDIRigsIntegrationTests {
         .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
     )
     func saveRefusesToOverwriteByDefault() async throws {
-        let client = try await connectedClient()
+        let client = try await connectedTestClient()
 
         let rig = Self.makeRig(id: "indimcpkit-test-\(UUID().uuidString)")
         _ = try await client.saveRig(rig)
@@ -74,12 +74,5 @@ struct INDIRigsIntegrationTests {
                 Component(role: .filterWheel, id: "fw1", slots: [1: "Ha", 2: "OIII"]),
             ]
         )
-    }
-
-    private func connectedClient() async throws -> INDIMCPClient {
-        let urlString = ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"]!
-        let client = INDIMCPClient(endpoint: try #require(URL(string: urlString)))
-        try await client.connect()
-        return client
     }
 }

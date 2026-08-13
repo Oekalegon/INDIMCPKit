@@ -20,7 +20,7 @@ struct INDIScriptsIntegrationTests {
         .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
     )
     func getBuiltInScript() async throws {
-        let client = try await connectedClient()
+        let client = try await connectedTestClient()
 
         let park = try await client.getScript(id: "park")
         #expect(park.id == "park")
@@ -40,7 +40,7 @@ struct INDIScriptsIntegrationTests {
         .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
     )
     func listIncludesBuiltIns() async throws {
-        let client = try await connectedClient()
+        let client = try await connectedTestClient()
 
         let scripts = try await client.listScripts()
         #expect(scripts.contains { $0.id == "park" })
@@ -53,7 +53,7 @@ struct INDIScriptsIntegrationTests {
         .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
     )
     func saveAndOverwriteProtection() async throws {
-        let client = try await connectedClient()
+        let client = try await connectedTestClient()
 
         let script = Script(
             id: "indimcpkit-test-\(UUID().uuidString)",
@@ -79,10 +79,19 @@ struct INDIScriptsIntegrationTests {
         await client.disconnect()
     }
 
-    private func connectedClient() async throws -> INDIMCPClient {
-        let urlString = ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"]!
-        let client = INDIMCPClient(endpoint: try #require(URL(string: urlString)))
-        try await client.connect()
-        return client
+    @Test(
+        "save refuses an id that collides with a built-in script",
+        .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
+    )
+    func saveRefusesBuiltInCollision() async throws {
+        let client = try await connectedTestClient()
+
+        let collidingScript = Script(id: "park", name: "Fake park", pausable: false, steps: [])
+
+        await #expect(throws: INDIMCPClientError.self) {
+            _ = try await client.saveScript(collidingScript)
+        }
+
+        await client.disconnect()
     }
 }

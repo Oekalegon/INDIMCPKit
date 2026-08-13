@@ -17,7 +17,7 @@ struct INDIObservatoriesIntegrationTests {
         .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
     )
     func saveGetAndList() async throws {
-        let client = try await connectedClient()
+        let client = try await connectedTestClient()
 
         let observatory = Self.makeObservatory(id: "indimcpkit-test-\(UUID().uuidString)")
 
@@ -38,7 +38,7 @@ struct INDIObservatoriesIntegrationTests {
         .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
     )
     func saveRefusesToOverwriteByDefault() async throws {
-        let client = try await connectedClient()
+        let client = try await connectedTestClient()
 
         let observatory = Self.makeObservatory(id: "indimcpkit-test-\(UUID().uuidString)")
         _ = try await client.saveObservatory(observatory)
@@ -65,7 +65,7 @@ struct INDIObservatoriesIntegrationTests {
     )
     func draftWithNoDevices() async throws {
         try await IndiServerTestLock.withLock {
-            let client = try await connectedClient()
+            let client = try await connectedTestClient()
             _ = try await client.startINDIServer()
             _ = try await client.startINDIMessaging()
 
@@ -81,12 +81,5 @@ struct INDIObservatoriesIntegrationTests {
 
     private static func makeObservatory(id: String) -> Observatory {
         Observatory(id: id, name: "INDIMCPKit Test Observatory", latitudeDeg: 52.1, longitudeDeg: 5.1, elevationMeters: 10)
-    }
-
-    private func connectedClient() async throws -> INDIMCPClient {
-        let urlString = ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"]!
-        let client = INDIMCPClient(endpoint: try #require(URL(string: urlString)))
-        try await client.connect()
-        return client
     }
 }
