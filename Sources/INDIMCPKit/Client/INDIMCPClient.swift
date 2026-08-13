@@ -70,12 +70,36 @@ public final class INDIMCPClient: Sendable {
         arguments: [String: Value]? = nil,
         decoding type: Output.Type
     ) async throws -> [Output] {
-        let structuredContent = try await structuredContent(forToolNamed: name, arguments: arguments)
-        return try Self.decode(ListResult<Output>.self, from: structuredContent).result
+        try await callToolUnwrappingResult(name, arguments: arguments, decoding: [Output].self)
     }
 
-    private struct ListResult<Element: Decodable & Sendable>: Decodable, Sendable {
-        let result: [Element]
+    /// Calls a tool whose Python return type is a `Union[...]` (e.g. `ScriptRunStatus`) and
+    /// decodes the discriminated result.
+    ///
+    /// Same reasoning as `callToolList`: a `Union` isn't a single object schema either, so
+    /// FastMCP wraps it as `{"result": ...}` just like a bare list — confirmed against the real
+    /// server's wire format for `get_script_status`/`cancel_script`/`pause_script`/
+    /// `resume_script`. `Output` here is expected to be a manually `Decodable` discriminated-union
+    /// type (switching on a `kind`/similar tag), not a plain struct.
+    func callToolUnion<Output: Decodable & Sendable>(
+        _ name: String,
+        arguments: [String: Value]? = nil,
+        decoding type: Output.Type
+    ) async throws -> Output {
+        try await callToolUnwrappingResult(name, arguments: arguments, decoding: Output.self)
+    }
+
+    private func callToolUnwrappingResult<Output: Decodable & Sendable>(
+        _ name: String,
+        arguments: [String: Value]?,
+        decoding type: Output.Type
+    ) async throws -> Output {
+        let structuredContent = try await structuredContent(forToolNamed: name, arguments: arguments)
+        return try Self.decode(ResultWrapper<Output>.self, from: structuredContent).result
+    }
+
+    private struct ResultWrapper<Wrapped: Decodable & Sendable>: Decodable, Sendable {
+        let result: Wrapped
     }
 
     private static func decode<Output: Decodable>(_ type: Output.Type, from value: Value) throws -> Output {
