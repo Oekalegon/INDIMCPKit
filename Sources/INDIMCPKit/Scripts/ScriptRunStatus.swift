@@ -15,6 +15,17 @@ public enum ScriptRunStatus: Sendable, Hashable {
     case paused(ScriptRunPaused)
     case resumed(ScriptRunResumed)
     case pauseRejected(ScriptRunPauseRejected)
+
+    /// Whether this status is a final outcome for the run — no further `getScriptStatus` call
+    /// will ever change it.
+    public var isTerminal: Bool {
+        switch self {
+        case .completed, .failed, .cancelled, .paused, .pauseRejected:
+            return true
+        case .started, .progress, .resumed:
+            return false
+        }
+    }
 }
 
 extension ScriptRunStatus: Codable {

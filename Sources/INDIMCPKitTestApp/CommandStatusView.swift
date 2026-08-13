@@ -55,6 +55,7 @@ struct CommandStatusView: View {
         case .failed: return "xmark.octagon"
         case .cancelled: return "stop.circle"
         case .paused: return "pause.circle"
+        case .pauseRejected: return "exclamationmark.triangle"
         default: return "checkmark.circle"
         }
     }
@@ -65,6 +66,7 @@ struct CommandStatusView: View {
         case .failed: return .red
         case .cancelled: return .orange
         case .paused: return .yellow
+        case .pauseRejected: return .orange
         default: return .primary
         }
     }

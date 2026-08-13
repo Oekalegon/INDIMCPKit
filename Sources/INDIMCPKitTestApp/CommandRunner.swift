@@ -23,9 +23,11 @@ final class CommandRunner {
         self.client = client
     }
 
-    /// Runs `start`, then polls the resulting run's status until it reaches a terminal state or
-    /// polling gives up after a fixed number of attempts (this is a test app, not a production
-    /// client — a caller that needs an unbounded wait should poll `getScriptStatus` directly).
+    /// Runs `start`, then polls the resulting run's status until it reaches a terminal state
+    /// (`ScriptRunStatus.isTerminal`) or polling gives up after a fixed number of attempts. Polls
+    /// itself, rather than calling `INDIMCPClient.waitForTerminalStatus`, because it needs to
+    /// publish each intermediate status for the UI — `waitForTerminalStatus` only reports the
+    /// final one.
     func run(_ start: @Sendable () async throws -> ScriptRunStarted) async {
         state = .starting
         do {
@@ -40,7 +42,7 @@ final class CommandRunner {
         for _ in 0..<120 {
             do {
                 let status = try await client.getScriptStatus(runId: runId)
-                if Self.isTerminal(status) {
+                if status.isTerminal {
                     state = .finished(status)
                     return
                 }
@@ -52,14 +54,5 @@ final class CommandRunner {
             try? await Task.sleep(for: .milliseconds(500))
         }
         state = .failed("Gave up polling '\(runId)' for a terminal status.")
-    }
-
-    private static func isTerminal(_ status: ScriptRunStatus) -> Bool {
-        switch status {
-        case .completed, .failed, .cancelled, .paused, .pauseRejected:
-            return true
-        case .started, .progress, .resumed:
-            return false
-        }
     }
 }

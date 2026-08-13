@@ -73,4 +73,26 @@ extension INDIMCPClient {
             decoding: ResumeOutcome.self
         )
     }
+
+    /// Polls `getScriptStatus(runId:)` at `pollInterval` until it reaches a terminal status
+    /// (`ScriptRunStatus.isTerminal`), or throws `INDIMCPClientError.pollingTimedOut` after
+    /// `maxAttempts` polls without one.
+    ///
+    /// Convenience for the common "start a script, then wait for it to finish" shape — callers
+    /// that need to observe intermediate progress should poll `getScriptStatus` themselves
+    /// instead.
+    public func waitForTerminalStatus(
+        runId: String,
+        pollInterval: Duration = .milliseconds(500),
+        maxAttempts: Int = 120
+    ) async throws -> ScriptRunStatus {
+        for _ in 0..<maxAttempts {
+            let status = try await getScriptStatus(runId: runId)
+            if status.isTerminal {
+                return status
+            }
+            try await Task.sleep(for: pollInterval)
+        }
+        throw INDIMCPClientError.pollingTimedOut(runId: runId, attempts: maxAttempts)
+    }
 }
