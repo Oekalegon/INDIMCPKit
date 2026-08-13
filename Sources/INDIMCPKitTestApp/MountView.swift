@@ -24,6 +24,14 @@ struct MountView: View {
             }
             .disabled(runner.isBusy)
 
+            // Deliberately not gated on runner.isBusy like the Slew section below: this is the
+            // operator's way to override an in-progress Slew (which has no give-up bound — see
+            // CommandRunner's doc comment) — needing to hit Park immediately while slewing toward
+            // an obstruction is exactly the kind of hardware-safety override this app should never
+            // block. Pressing Park/Unpark/Track Off cancels watching the slew (CommandRunner.run's
+            // existing supersession behavior) and starts watching the new command instead; the
+            // slew keeps running server-side until its own step naturally resolves, same trade-off
+            // already accepted for Camera's Cooler Off override.
             Section("Park / Track") {
                 HStack {
                     Button("Park") { Task { await run(mount.park) } }
@@ -31,7 +39,7 @@ struct MountView: View {
                     Button("Track Off") { Task { await run(mount.trackOff) } }
                 }
             }
-            .disabled(runner.isBusy || !isConnected)
+            .disabled(!isConnected)
 
             Section("Slew") {
                 TextField("RA (hours)", text: $ra)
