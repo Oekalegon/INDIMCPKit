@@ -62,9 +62,18 @@ extension INDIMCPClient {
         return "indi://scripts/\(percentEncoded(runId))"
     }
 
+    /// ASCII-only unreserved set (RFC 3986), matching Python's `quote(safe="")` exactly.
+    /// `CharacterSet.alphanumerics` would be the wrong building block here — it's Unicode-inclusive
+    /// (every Unicode letter/digit, not just `A-Za-z0-9`), while `quote`'s default `safe` set is
+    /// ASCII-only; anything outside it, non-ASCII letters included, gets percent-encoded as UTF-8
+    /// bytes. A device name like `"Café Simulator"` would otherwise encode differently here than
+    /// on the server, and `event_streams.py` matches subscriptions by exact URI string — a
+    /// mismatched encoding means that device's live messages silently never arrive, with nothing
+    /// to point at why.
     private static func percentEncoded(_ value: String) -> String {
-        var allowed = CharacterSet.alphanumerics
-        allowed.insert(charactersIn: "-._~")
+        let allowed = CharacterSet(
+            charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
+        )
         return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 }

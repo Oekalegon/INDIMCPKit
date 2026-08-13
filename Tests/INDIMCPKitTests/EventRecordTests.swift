@@ -62,6 +62,13 @@ import Testing
     #expect(INDIMCPClient.messagesURI(device: "A/B") == "indi://messages/A%2FB")
 }
 
+@Test func messagesURIPercentEncodesNonASCIICharactersAsUTF8Bytes() {
+    // Matches Python's quote(safe="") exactly — its default safe set is ASCII-only, so a non-ASCII
+    // letter like "é" gets percent-encoded as its UTF-8 bytes rather than left unescaped, unlike
+    // CharacterSet.alphanumerics (which is Unicode-inclusive and would leave it alone).
+    #expect(INDIMCPClient.messagesURI(device: "Café Simulator") == "indi://messages/Caf%C3%A9%20Simulator")
+}
+
 @Test func scriptsURIPercentEncodesRunId() {
     #expect(INDIMCPClient.scriptsURI(runId: nil) == "indi://scripts")
     #expect(INDIMCPClient.scriptsURI(runId: "run 1") == "indi://scripts/run%201")
