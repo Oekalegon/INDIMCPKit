@@ -23,7 +23,7 @@ struct INDIDriverManagementIntegrationTests {
         .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
     )
     func decodesWrappedListResult() async throws {
-        let client = try await connectedClient()
+        let client = try await connectedTestClient()
         // list_rigs isn't part of driver management, but it's a list-returning tool that
         // doesn't depend on the INDI driver catalog, so it's a reliable way to confirm
         // INDIMCPClient.callToolList's {"result": [...]} unwrapping works against the real wire
@@ -43,19 +43,12 @@ struct INDIDriverManagementIntegrationTests {
         .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
     )
     func driverToolFailureSurfacesTypedError() async throws {
-        let client = try await connectedClient()
+        let client = try await connectedTestClient()
 
         await #expect(throws: INDIMCPClientError.self) {
             _ = try await client.startINDIDriver(label: "nonexistent-driver-xyz")
         }
 
         await client.disconnect()
-    }
-
-    private func connectedClient() async throws -> INDIMCPClient {
-        let urlString = ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"]!
-        let client = INDIMCPClient(endpoint: try #require(URL(string: urlString)))
-        try await client.connect()
-        return client
     }
 }

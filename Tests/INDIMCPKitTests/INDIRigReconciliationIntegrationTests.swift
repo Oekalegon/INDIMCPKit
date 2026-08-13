@@ -30,7 +30,7 @@ struct INDIRigReconciliationIntegrationTests {
     )
     func suggestAndDraftWithNoDevices() async throws {
         try await IndiServerTestLock.withLock {
-            let client = try await connectedClient()
+            let client = try await connectedTestClient()
             _ = try await client.startINDIServer()
             _ = try await client.startINDIMessaging()
 
@@ -56,7 +56,7 @@ struct INDIRigReconciliationIntegrationTests {
     )
     func checkRigWithNoDevicesConnected() async throws {
         try await IndiServerTestLock.withLock {
-            let client = try await connectedClient()
+            let client = try await connectedTestClient()
             _ = try await client.startINDIServer()
             _ = try await client.startINDIMessaging()
 
@@ -87,12 +87,5 @@ struct INDIRigReconciliationIntegrationTests {
             _ = try await client.stopINDIServer()
             await client.disconnect()
         }
-    }
-
-    private func connectedClient() async throws -> INDIMCPClient {
-        let urlString = ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"]!
-        let client = INDIMCPClient(endpoint: try #require(URL(string: urlString)))
-        try await client.connect()
-        return client
     }
 }
