@@ -20,6 +20,7 @@ struct FocuserView: View {
                     Button("Disconnect") { Task { await runner.run(focuser.disconnect) } }
                 }
             }
+            .disabled(runner.isBusy)
 
             Section("Position") {
                 TextField("Absolute position", text: $position)
@@ -31,6 +32,7 @@ struct FocuserView: View {
                     }
                 }
             }
+            .disabled(runner.isBusy)
 
             Section("Status") {
                 CommandStatusView(state: runner.state)

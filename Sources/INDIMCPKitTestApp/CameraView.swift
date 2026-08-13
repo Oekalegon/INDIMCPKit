@@ -21,6 +21,7 @@ struct CameraView: View {
                     Button("Disconnect") { Task { await runner.run(camera.disconnect) } }
                 }
             }
+            .disabled(runner.isBusy)
 
             Section("Cooling") {
                 TextField("Target temperature (°C)", text: $targetTempC)
@@ -36,6 +37,7 @@ struct CameraView: View {
                     Button("Cooler Off") { Task { await runner.run(camera.coolerOff) } }
                 }
             }
+            .disabled(runner.isBusy)
 
             Section("Exposure") {
                 TextField("Exposure (seconds)", text: $exposureSeconds)
@@ -47,6 +49,7 @@ struct CameraView: View {
                     }
                 }
             }
+            .disabled(runner.isBusy)
 
             Section("Status") {
                 CommandStatusView(state: runner.state)

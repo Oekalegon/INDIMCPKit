@@ -20,13 +20,14 @@ struct FilterWheelView: View {
                     Button("Disconnect") { Task { await runner.run(filterWheel.disconnect) } }
                 }
             }
+            .disabled(runner.isBusy)
 
             Section("Filter") {
                 TextField("Filter name", text: $filterName)
                 Button("Select Filter") {
                     Task { await runner.run { try await filterWheel.selectFilter(filterName) } }
                 }
-                .disabled(filterName.isEmpty)
+                .disabled(filterName.isEmpty || runner.isBusy)
             }
 
             Section("Status") {

@@ -21,6 +21,7 @@ struct MountView: View {
                     Button("Disconnect") { Task { await runner.run(mount.disconnect) } }
                 }
             }
+            .disabled(runner.isBusy)
 
             Section("Park / Track") {
                 HStack {
@@ -29,6 +30,7 @@ struct MountView: View {
                     Button("Track Off") { Task { await runner.run(mount.trackOff) } }
                 }
             }
+            .disabled(runner.isBusy)
 
             Section("Slew") {
                 TextField("RA (hours)", text: $ra)
@@ -41,6 +43,7 @@ struct MountView: View {
                     }
                 }
             }
+            .disabled(runner.isBusy)
 
             Section("Status") {
                 CommandStatusView(state: runner.state)
