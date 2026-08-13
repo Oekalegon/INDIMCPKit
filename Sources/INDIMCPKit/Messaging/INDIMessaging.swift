@@ -32,6 +32,22 @@ extension INDIMCPClient {
         return try await callToolList("list_indi_messages", arguments: arguments, decoding: IndiEvent.self)
     }
 
+    /// Queries the INDI server for the live state of every property on `device`.
+    ///
+    /// Queries `indiserver` directly (`getProperties`) rather than returning whatever was last
+    /// cached, so the result reflects the device's actual state at call time when possible —
+    /// check the returned `refreshed` flag, which is `false` if the driver didn't respond in
+    /// time and `properties` fell back to a previously-cached reading. The MCP tool itself
+    /// exposes no timeout parameter (only `device`), even though the server's own internal
+    /// implementation supports one.
+    public func getDeviceProperties(device: String) async throws -> DeviceProperties {
+        try await callTool(
+            "get_device_properties",
+            arguments: ["device": .string(device)],
+            decoding: DeviceProperties.self
+        )
+    }
+
     /// Sends a command to an INDI device, setting `elements` on its property `name`.
     ///
     /// This is a low-level, unguarded passthrough — it can set any property on any device,
