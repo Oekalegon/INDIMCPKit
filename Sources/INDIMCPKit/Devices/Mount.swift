@@ -9,9 +9,9 @@
 /// `INDIMCPClientError` (not just `DeviceControlError`) if `startINDIMessaging()` hasn't been
 /// called yet — see `ensureConnected`'s doc comment.
 public struct Mount: DeviceHandle {
-    let client: INDIMCPClient
+    public let client: INDIMCPClient
     public let rigId: String
-    let role: Role = .mount
+    public let role: Role = .mount
 
     init(client: INDIMCPClient, rigId: String) {
         self.client = client

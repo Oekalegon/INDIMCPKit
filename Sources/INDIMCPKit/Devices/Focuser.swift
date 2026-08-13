@@ -3,9 +3,9 @@
 /// Obtained via `INDIMCPClient.focuser(rigId:)`, not constructed directly. See `Mount`'s doc
 /// comment for the connectivity-check behavior shared by every device-type handle.
 public struct Focuser: DeviceHandle {
-    let client: INDIMCPClient
+    public let client: INDIMCPClient
     public let rigId: String
-    let role: Role = .focuser
+    public let role: Role = .focuser
 
     init(client: INDIMCPClient, rigId: String) {
         self.client = client

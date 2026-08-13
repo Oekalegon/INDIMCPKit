@@ -79,3 +79,28 @@ import Testing
         return
     }
 }
+
+@Test func isTerminalReflectsEachStatusCorrectly() {
+    let nonTerminal: [ScriptRunStatus] = [
+        .started(ScriptRunStarted(runId: "r1", script: "park", rigId: "rig1", startedAt: "t", pausable: false)),
+        .progress(ScriptRunProgress(runId: "r1", rigId: "rig1", step: 1, totalSteps: 2, message: nil, role: nil, device: nil)),
+        .resumed(ScriptRunResumed(runId: "r1", rigId: "rig1", resumedAtStep: 1)),
+    ]
+    for status in nonTerminal {
+        #expect(!status.isTerminal, "expected \(status) to not be terminal")
+    }
+
+    let terminal: [ScriptRunStatus] = [
+        .completed(ScriptRunCompleted(
+            runId: "r1", rigId: "rig1", finishedAt: "t",
+            result: ScriptResult(scriptId: "park", stepsExecuted: 2, framesCaptured: 0, warnings: [])
+        )),
+        .failed(ScriptRunFailed(runId: "r1", rigId: "rig1", failedAtStep: 1, error: ScriptRunError(message: "boom", warnings: []))),
+        .cancelled(ScriptRunCancelled(runId: "r1", rigId: "rig1", cancelledAtStep: 1, finishedAt: "t", warnings: [])),
+        .paused(ScriptRunPaused(runId: "r1", rigId: "rig1", pausedAtStep: 1)),
+        .pauseRejected(ScriptRunPauseRejected(runId: "r1", rigId: "rig1", reason: "not pausable")),
+    ]
+    for status in terminal {
+        #expect(status.isTerminal, "expected \(status) to be terminal")
+    }
+}

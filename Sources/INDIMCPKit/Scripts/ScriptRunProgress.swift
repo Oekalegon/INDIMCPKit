@@ -7,6 +7,12 @@
 public struct ScriptRunProgress: Codable, Sendable, Hashable {
     public let runId: String
     public let rigId: String
+
+    /// Already 1-based, not a 0-based index: the server increments its internal step counter
+    /// *before* running each step and reports immediately, so `step == totalSteps` means the
+    /// last step is now running/just finished, not that there's one more to go. Display it
+    /// as-is ("Step \(step) of \(totalSteps)") — adding 1 double-counts and can show e.g.
+    /// "Step 3 of 2" on a 2-step script's final progress report.
     public let step: Int
     public let totalSteps: Int?
     public let message: String?

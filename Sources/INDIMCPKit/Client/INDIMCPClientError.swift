@@ -9,6 +9,10 @@ public enum INDIMCPClientError: Error, Sendable {
     /// return structured content; a missing one usually means a version mismatch between this
     /// kit and the server it's talking to.
     case missingStructuredContent(tool: String)
+
+    /// `waitForTerminalStatus(runId:)` polled `attempts` times without the run ever reaching a
+    /// terminal status.
+    case pollingTimedOut(runId: String, attempts: Int)
 }
 
 extension INDIMCPClientError: CustomStringConvertible {
@@ -18,6 +22,8 @@ extension INDIMCPClientError: CustomStringConvertible {
             return "INDIMCP-server tool '\(tool)' failed: \(message)"
         case .missingStructuredContent(let tool):
             return "INDIMCP-server tool '\(tool)' returned no structured content to decode"
+        case .pollingTimedOut(let runId, let attempts):
+            return "Run '\(runId)' did not reach a terminal status after \(attempts) polling attempt(s)"
         }
     }
 }

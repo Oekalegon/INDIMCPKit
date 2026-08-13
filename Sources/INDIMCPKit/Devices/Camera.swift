@@ -3,9 +3,9 @@
 /// Obtained via `INDIMCPClient.camera(rigId:)`, not constructed directly. See `Mount`'s doc
 /// comment for the connectivity-check behavior shared by every device-type handle.
 public struct Camera: DeviceHandle {
-    let client: INDIMCPClient
+    public let client: INDIMCPClient
     public let rigId: String
-    let role: Role = .camera
+    public let role: Role = .camera
 
     init(client: INDIMCPClient, rigId: String) {
         self.client = client
@@ -28,6 +28,33 @@ public struct Camera: DeviceHandle {
     public func coolerOff() async throws -> ScriptRunStarted {
         try await client.ensureConnected(role: .camera, rigId: rigId)
         return try await client.coolerOff(rigId: rigId)
+    }
+
+    /// Whether the cooler is currently on, going by the most recently observed `CCD_COOLER`
+    /// event on this rig's camera device — `nil` if that can't be determined (no `CCD_COOLER`
+    /// event seen yet, e.g. before INDI messaging has streamed one, or this rig's camera
+    /// component has no `device` name resolved).
+    ///
+    /// UI-oriented, not authoritative: this is only ever as fresh as the last streamed event
+    /// (`listINDIMessages` isn't a live subscription, just the most recent snapshot), the same
+    /// caveat `INDIMCPClient.isDeviceConnected` carries.
+    public func isCoolerOn() async throws -> Bool? {
+        let rig = try await client.getRig(id: rigId)
+        guard let device = rig.components.first(where: { $0.role == .camera })?.device else {
+            return nil
+        }
+        // Widening limits, not a single fixed one: CCD_COOLER only fires when the switch
+        // changes, but CCD_TEMPERATURE (and anything else on this device) can update far more
+        // often — most visibly during coolCamera's own wait_for step, exactly when a caller is
+        // most likely to be asking this. A too-small window would let those crowd CCD_COOLER out
+        // and report "unknown" for a state that's actually still perfectly well known.
+        for limit in [20, 100, 500] {
+            let events = try await client.listINDIMessages(device: device, limit: limit)
+            if let latest = events.first(where: { $0.name == "CCD_COOLER" }) {
+                return latest.elements?["COOLER_ON"] == "On"
+            }
+        }
+        return nil
     }
 
     /// Captures a single frame. See `INDIMCPClient.captureFrame` for the full parameter set.

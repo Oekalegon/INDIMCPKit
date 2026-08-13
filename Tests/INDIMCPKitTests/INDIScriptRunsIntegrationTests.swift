@@ -40,13 +40,11 @@ struct INDIScriptRunsIntegrationTests {
 
             // The run fails almost immediately (the mount device isn't connected), but is
             // asynchronous server-side — poll briefly rather than assuming it's already terminal.
-            var status = try await client.getScriptStatus(runId: started.runId)
-            for _ in 0..<20 {
-                if case .failed = status { break }
-                if case .completed = status { break }
-                try await Task.sleep(for: .milliseconds(100))
-                status = try await client.getScriptStatus(runId: started.runId)
-            }
+            let status = try await client.waitForTerminalStatus(
+                runId: started.runId,
+                pollInterval: .milliseconds(100),
+                maxAttempts: 20
+            )
             guard case .failed(let failed) = status else {
                 Testing.Issue.record("expected a .failed status, got \(status)")
                 return
