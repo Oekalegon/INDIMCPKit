@@ -8,11 +8,13 @@ struct FilterWheelView: View {
     @State private var observableDevice: ObservableDevice
     @State private var isConnected = false
     @State private var filterName = ""
+    let isActive: Bool
 
-    init(client: INDIMCPClient, rigId: String) {
+    init(client: INDIMCPClient, rigId: String, isActive: Bool) {
         self.filterWheel = client.filterWheel(rigId: rigId)
         _runner = State(initialValue: CommandRunner(client: client))
         _observableDevice = State(initialValue: ObservableDevice(client: client, rigId: rigId, role: .filterWheel))
+        self.isActive = isActive
     }
 
     var body: some View {
@@ -46,12 +48,19 @@ struct FilterWheelView: View {
         .padding()
         .navigationTitle("Filter Wheel")
         .task { await refreshConnectionState() }
-        // Not scoped to "while this tab is visible": TabView on macOS keeps every tab's content
-        // view alive in the hierarchy the whole time the TabView exists, so switching away from
-        // this tab doesn't trigger onDisappear — only disconnecting/changing rig does. This
-        // subscription (and the same one on every other device tab) runs for the whole connected
-        // session, not just while the operator is actually looking at it.
-        .task { await observableDevice.start() }
+        // Scoped to isActive (whether this is the currently selected tab), not just view
+        // lifecycle: TabView on macOS keeps every tab's content view alive in the hierarchy the
+        // whole time the TabView exists, so onDisappear alone would never fire on a tab switch —
+        // only on disconnect/change rig. .task(id:) re-runs (cancelling the previous run) whenever
+        // isActive changes, so the live subscription only stays open while this tab is the one
+        // actually visible, not for every tab simultaneously for the whole session.
+        .task(id: isActive) {
+            if isActive {
+                await observableDevice.start()
+            } else {
+                observableDevice.stop()
+            }
+        }
         .onDisappear { observableDevice.stop() }
     }
 

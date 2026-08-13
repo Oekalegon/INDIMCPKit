@@ -58,7 +58,7 @@ between the kit it was built against and the server it's talking to.
 - **INDIMCPKit test app** (macOS, SwiftUI) — one screen per device type showing its default tool connections in
   action (e.g. Mount: park/unpark/track/slew; Camera: cooling + single exposure), plus each device
   screen's live `ObservableDevice`-backed properties (name, state as a colored circle, every element)
-  updating in real time.
+  updating in real time — scoped to whichever device tab is actually selected, not all four at once.
 
 ## Development workflow
 
