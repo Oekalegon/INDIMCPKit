@@ -29,3 +29,25 @@ import Testing
         _ = try await client.deleteAllFrames(acknowledgingPermanentDataLoss: false)
     }
 }
+
+@Test func reachableURLSubstitutesTheEndpointsHost() throws {
+    // INDIMCP-server computes downloadUrl from its own socket.gethostname() (an mDNS .local
+    // name), which isn't reliably resolvable from every client's network even though the same
+    // server is already reachable at whatever host the client used to connect via MCP.
+    let client = INDIMCPClient(endpoint: try #require(URL(string: "http://192.168.1.50:8000/mcp")))
+    let downloadUrl = try #require(URL(string: "http://telescope.local:8000/frames/abc123"))
+
+    let reachable = client.reachableURL(for: downloadUrl)
+
+    #expect(reachable.host == "192.168.1.50")
+    #expect(reachable.port == 8000)
+    #expect(reachable.path == "/frames/abc123")
+    #expect(reachable.scheme == "http")
+}
+
+@Test func reachableURLLeavesAMatchingHostAlone() throws {
+    let client = INDIMCPClient(endpoint: try #require(URL(string: "http://192.168.1.50:8000/mcp")))
+    let downloadUrl = try #require(URL(string: "http://192.168.1.50:8000/frames/abc123"))
+
+    #expect(client.reachableURL(for: downloadUrl) == downloadUrl)
+}
