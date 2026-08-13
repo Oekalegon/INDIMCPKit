@@ -14,3 +14,8 @@ import Testing
     let info = try JSONDecoder().decode(ServerInfo.self, from: json)
     #expect(info.buildTimestamp == nil)
 }
+
+@Test func matchesAlignedVersionReflectsExactEquality() {
+    #expect(ServerInfo(version: alignedINDIMCPServerVersion, buildTimestamp: nil).matchesAlignedVersion)
+    #expect(!ServerInfo(version: "999.0.0", buildTimestamp: nil).matchesAlignedVersion)
+}

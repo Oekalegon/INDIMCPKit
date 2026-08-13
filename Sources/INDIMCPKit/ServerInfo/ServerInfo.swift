@@ -17,4 +17,10 @@ public struct ServerInfo: Codable, Sendable, Hashable {
         self.version = version
         self.buildTimestamp = buildTimestamp
     }
+
+    /// Whether `version` exactly matches `alignedINDIMCPServerVersion` — see that constant's doc
+    /// comment for what a mismatch does (and doesn't) tell you.
+    public var matchesAlignedVersion: Bool {
+        version == alignedINDIMCPServerVersion
+    }
 }
