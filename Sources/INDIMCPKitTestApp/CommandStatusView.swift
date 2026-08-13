@@ -31,9 +31,9 @@ struct CommandStatusView: View {
             return "Started '\(started.script)' (run \(started.runId.prefix(8)))"
         case .progress(let progress):
             if let total = progress.totalSteps {
-                return "Step \(progress.step + 1) of \(total)" + (progress.message.map { ": \($0)" } ?? "")
+                return "Step \(progress.step) of \(total)" + (progress.message.map { ": \($0)" } ?? "")
             }
-            return progress.message ?? "Step \(progress.step + 1)"
+            return progress.message ?? "Step \(progress.step)"
         case .completed(let completed):
             return "Completed (\(completed.result.stepsExecuted) step(s))"
         case .failed(let failed):
