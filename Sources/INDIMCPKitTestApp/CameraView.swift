@@ -47,9 +47,17 @@ struct CameraView: View {
             Section("Status") {
                 CommandStatusView(state: model.runner.state) { Task { await model.cancel() } }
             }
+
+            DevicePropertiesSection(
+                properties: model.observableDevice.properties,
+                isRefreshed: model.observableDevice.isRefreshed,
+                lastError: model.observableDevice.lastError
+            )
         }
         .padding()
         .navigationTitle("Camera")
         .task { await model.refreshDeviceState() }
+        .task { await model.observableDevice.start() }
+        .onDisappear { model.observableDevice.stop() }
     }
 }

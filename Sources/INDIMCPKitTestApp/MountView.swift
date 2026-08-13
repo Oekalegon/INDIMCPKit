@@ -5,6 +5,7 @@ struct MountView: View {
     let mount: Mount
 
     @State private var runner: CommandRunner
+    @State private var observableDevice: ObservableDevice
     @State private var isConnected = false
     @State private var ra = "0"
     @State private var dec = "0"
@@ -12,6 +13,7 @@ struct MountView: View {
     init(client: INDIMCPClient, rigId: String) {
         self.mount = client.mount(rigId: rigId)
         _runner = State(initialValue: CommandRunner(client: client))
+        _observableDevice = State(initialValue: ObservableDevice(client: client, rigId: rigId, role: .mount))
     }
 
     var body: some View {
@@ -57,10 +59,18 @@ struct MountView: View {
             Section("Status") {
                 CommandStatusView(state: runner.state) { Task { await runner.cancel() } }
             }
+
+            DevicePropertiesSection(
+                properties: observableDevice.properties,
+                isRefreshed: observableDevice.isRefreshed,
+                lastError: observableDevice.lastError
+            )
         }
         .padding()
         .navigationTitle("Mount")
         .task { await refreshConnectionState() }
+        .task { await observableDevice.start() }
+        .onDisappear { observableDevice.stop() }
     }
 
     private func run(_ start: @escaping @Sendable () async throws -> ScriptRunStarted) async {

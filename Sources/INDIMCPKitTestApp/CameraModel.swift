@@ -10,6 +10,7 @@ import Observation
 final class CameraModel {
     let camera: Camera
     let runner: CommandRunner
+    let observableDevice: ObservableDevice
 
     private(set) var isConnected = false
 
@@ -23,6 +24,7 @@ final class CameraModel {
     init(client: INDIMCPClient, rigId: String) {
         self.camera = client.camera(rigId: rigId)
         self.runner = CommandRunner(client: client)
+        self.observableDevice = ObservableDevice(client: client, rigId: rigId, role: .camera)
     }
 
     func refreshDeviceState() async {

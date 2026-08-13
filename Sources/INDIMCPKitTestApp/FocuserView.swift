@@ -5,12 +5,14 @@ struct FocuserView: View {
     let focuser: Focuser
 
     @State private var runner: CommandRunner
+    @State private var observableDevice: ObservableDevice
     @State private var isConnected = false
     @State private var position = "0"
 
     init(client: INDIMCPClient, rigId: String) {
         self.focuser = client.focuser(rigId: rigId)
         _runner = State(initialValue: CommandRunner(client: client))
+        _observableDevice = State(initialValue: ObservableDevice(client: client, rigId: rigId, role: .focuser))
     }
 
     var body: some View {
@@ -38,10 +40,18 @@ struct FocuserView: View {
             Section("Status") {
                 CommandStatusView(state: runner.state) { Task { await runner.cancel() } }
             }
+
+            DevicePropertiesSection(
+                properties: observableDevice.properties,
+                isRefreshed: observableDevice.isRefreshed,
+                lastError: observableDevice.lastError
+            )
         }
         .padding()
         .navigationTitle("Focuser")
         .task { await refreshConnectionState() }
+        .task { await observableDevice.start() }
+        .onDisappear { observableDevice.stop() }
     }
 
     private func run(_ start: @escaping @Sendable () async throws -> ScriptRunStarted) async {
