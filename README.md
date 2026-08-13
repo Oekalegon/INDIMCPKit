@@ -44,9 +44,10 @@ between the kit it was built against and the server it's talking to.
     device/run if wanted); `getEvents` queries the durable event log to catch up on what a
     disconnected client missed, since the live streams are best-effort/live-only.
   - **Frames** — `listFrames`/`getFrameMetadata`/`confirmFrameTransfer`/`deleteFrame`/
-    `purgeTransferredFrames` manage captured-frame metadata; `downloadFrame` streams a frame's raw
-    bytes straight to a local file via the server's `GET /frames/{frameId}` route, never buffering
-    the whole file in memory.
+    `purgeTransferredFrames`/`deleteAllTransferredFrames`/`deleteAllFrames` manage captured-frame
+    metadata (frames are never purged automatically server-side, unlike the event log); `downloadFrame`
+    streams a frame's raw bytes straight to a local file via the server's `GET /frames/{frameId}`
+    route, never buffering the whole file in memory.
 - **INDIMCPKit test app** (macOS, SwiftUI) — one screen per device type showing its default tool connections in
   action (e.g. Mount: park/unpark/track/slew; Camera: cooling + single exposure).
 

@@ -77,4 +77,46 @@ extension INDIMCPClient {
             decoding: FrameMetadata.self
         )
     }
+
+    /// Deletes every already-transferred frame, regardless of age — a convenience over
+    /// `purgeTransferredFrames(olderThanDays:)` for "I've downloaded everything I need, clean up
+    /// now" rather than an age-based sweep. Frames are **never** deleted automatically by the
+    /// server on its own initiative (unlike the durable event log, which purges after a day) —
+    /// this is the only way frames that have already been safely copied elsewhere stop taking up
+    /// the INDI Device's limited storage.
+    ///
+    /// Only ever considers frames already confirmed transferred (`confirmFrameTransfer`); a frame
+    /// not yet confirmed received is untouched, same as `purgeTransferredFrames`.
+    public func deleteAllTransferredFrames() async throws -> [FrameMetadata] {
+        try await purgeTransferredFrames(olderThanDays: 0)
+    }
+
+    /// Deletes **every** captured frame on the server, including ones never confirmed
+    /// transferred — anything not already safely copied elsewhere is gone for good. There's no
+    /// single server tool for this (only `purgeTransferredFrames`, which only ever touches
+    /// already-transferred frames); this composes `listFrames` with a `deleteFrame(requireTransferred:
+    /// false)` per frame.
+    ///
+    /// `acknowledgingPermanentDataLoss` has no default and isn't a mere formality — it exists so
+    /// this can't be called by accident (a typo'd method name, a copy-pasted call site) the way
+    /// `deleteFrame`'s `requireTransferred` default already protects the single-frame case.
+    /// INDIMCPKit itself has no UI to prompt an operator before this runs; a caller with a user
+    /// interface (e.g. `INDIMCPKitTestApp`) is responsible for getting *actual* human confirmation
+    /// before ever passing `true` here — this parameter only proves the caller's code path
+    /// deliberately chose to, not that a person actually agreed to it.
+    ///
+    /// Not atomic across frames: if a `deleteFrame` call partway through the list throws, this
+    /// rethrows immediately — some frames may already be deleted and others not. Call `listFrames`
+    /// again afterward to see what's actually left rather than assuming all-or-nothing.
+    public func deleteAllFrames(acknowledgingPermanentDataLoss: Bool) async throws -> [FrameMetadata] {
+        guard acknowledgingPermanentDataLoss else {
+            throw INDIMCPClientError.allFramesDeletionNotAcknowledged
+        }
+        let frames = try await listFrames()
+        var deleted: [FrameMetadata] = []
+        for frame in frames {
+            deleted.append(try await deleteFrame(frameId: frame.frameId, requireTransferred: false))
+        }
+        return deleted
+    }
 }

@@ -38,8 +38,13 @@ extension INDIMCPClient {
 
         let fileManager = FileManager.default
         if fileManager.fileExists(atPath: destination.path) {
-            try fileManager.removeItem(at: destination)
+            // Atomic swap rather than remove-then-move: if moveItem below failed after an
+            // unconditional removeItem, the caller would be left with neither the old file nor
+            // the new one — a real way to lose a previously-downloaded frame's only local copy
+            // to a transient filesystem error.
+            _ = try fileManager.replaceItemAt(destination, withItemAt: temporaryURL)
+        } else {
+            try fileManager.moveItem(at: temporaryURL, to: destination)
         }
-        try fileManager.moveItem(at: temporaryURL, to: destination)
     }
 }

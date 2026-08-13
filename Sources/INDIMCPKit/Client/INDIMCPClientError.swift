@@ -31,6 +31,11 @@ public enum INDIMCPClientError: Error, Sendable {
     /// most commonly 404 (the frame was deleted server-side between listing it and downloading
     /// it) or a network-level proxy/gateway error, not an MCP protocol error.
     case frameDownloadFailed(frameId: String, statusCode: Int)
+
+    /// `deleteAllFrames(acknowledgingPermanentDataLoss:)` was called with `false` — refused before
+    /// touching the server at all, since this call can delete frames nothing has copied anywhere
+    /// else yet.
+    case allFramesDeletionNotAcknowledged
 }
 
 extension INDIMCPClientError: CustomStringConvertible {
@@ -48,6 +53,8 @@ extension INDIMCPClientError: CustomStringConvertible {
             return "Frame '\(frameId)' has no downloadUrl (server has no HTTP listener)"
         case .frameDownloadFailed(let frameId, let statusCode):
             return "Downloading frame '\(frameId)' failed with HTTP status \(statusCode)"
+        case .allFramesDeletionNotAcknowledged:
+            return "deleteAllFrames requires acknowledgingPermanentDataLoss: true"
         }
     }
 }
