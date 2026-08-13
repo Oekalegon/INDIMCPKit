@@ -28,6 +28,9 @@ struct CommandStatusView: View {
                     .foregroundStyle(.secondary)
                 cancelButton
             }
+        case .cancelling:
+            Label("Cancelling…", systemImage: "xmark.circle")
+                .foregroundStyle(.secondary)
         case .finished(let status):
             Label(description(for: status), systemImage: symbol(for: status))
                 .foregroundStyle(color(for: status))

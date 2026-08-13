@@ -60,6 +60,99 @@ struct DeviceAbstractionsIntegrationTests {
     }
 
     @Test(
+        "isDeviceConnected reports false, not throwing, when the rig has no matching component",
+        .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
+    )
+    func isDeviceConnectedFalseWhenNoComponentForRole() async throws {
+        let client = try await connectedTestClient()
+
+        let rig = Rig(
+            id: "indimcpkit-test-\(UUID().uuidString)",
+            name: "No Mount Rig (isDeviceConnected)",
+            components: [Component(role: .camera, id: "cam1", device: "Not Connected Camera")]
+        )
+        _ = try await client.saveRig(rig)
+
+        // Unlike ensureConnected (which throws noComponentForRole here), isDeviceConnected
+        // doesn't distinguish "no component" from "component present but not connected" — both
+        // just report false, since it's meant as a plain yes/no UI signal, not a diagnostic.
+        let connected = try await client.isDeviceConnected(role: .mount, rigId: rig.id)
+        #expect(connected == false)
+
+        await client.disconnect()
+    }
+
+    @Test(
+        "isDeviceConnected reports false when the rig's component isn't connected",
+        .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
+    )
+    func isDeviceConnectedFalseWhenDeviceNotConnected() async throws {
+        try await IndiServerTestLock.withLock {
+            let client = try await connectedTestClient()
+            _ = try await client.startINDIServer()
+            _ = try await client.startINDIMessaging()
+
+            let rig = Rig(
+                id: "indimcpkit-test-\(UUID().uuidString)",
+                name: "Unconnected Mount Rig (isDeviceConnected)",
+                components: [Component(role: .mount, id: "mnt1", device: "Not Connected Mount")]
+            )
+            _ = try await client.saveRig(rig)
+
+            let connected = try await client.mount(rigId: rig.id).isConnected()
+            #expect(connected == false)
+
+            _ = try await client.stopINDIServer()
+            await client.disconnect()
+        }
+    }
+
+    @Test(
+        "camera isCoolerOn reports nil when the rig's camera component has no device name",
+        .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
+    )
+    func cameraIsCoolerOnNilWhenNoDeviceName() async throws {
+        let client = try await connectedTestClient()
+
+        let rig = Rig(
+            id: "indimcpkit-test-\(UUID().uuidString)",
+            name: "Camera With No Device Name",
+            components: [Component(role: .camera, id: "cam1")]
+        )
+        _ = try await client.saveRig(rig)
+
+        let isCoolerOn = try await client.camera(rigId: rig.id).isCoolerOn()
+        #expect(isCoolerOn == nil)
+
+        await client.disconnect()
+    }
+
+    @Test(
+        "camera isCoolerOn reports nil when no CCD_COOLER event has ever been observed",
+        .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
+    )
+    func cameraIsCoolerOnNilWhenNoCoolerEventObserved() async throws {
+        try await IndiServerTestLock.withLock {
+            let client = try await connectedTestClient()
+            _ = try await client.startINDIServer()
+            _ = try await client.startINDIMessaging()
+
+            let rig = Rig(
+                id: "indimcpkit-test-\(UUID().uuidString)",
+                name: "Camera Never Toggled Cooler",
+                components: [Component(role: .camera, id: "cam1", device: "Not Connected Camera")]
+            )
+            _ = try await client.saveRig(rig)
+
+            let isCoolerOn = try await client.camera(rigId: rig.id).isCoolerOn()
+            #expect(isCoolerOn == nil)
+
+            _ = try await client.stopINDIServer()
+            await client.disconnect()
+        }
+    }
+
+    @Test(
         "connect/disconnect skip the connectivity check",
         .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
     )

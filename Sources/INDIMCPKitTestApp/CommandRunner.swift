@@ -12,6 +12,7 @@ final class CommandRunner {
         case idle
         case starting
         case running(ScriptRunStatus)
+        case cancelling
         case finished(ScriptRunStatus)
         case failed(String)
     }
@@ -21,12 +22,12 @@ final class CommandRunner {
     private var activeRun: Task<Void, Never>?
     private var currentRunId: String?
 
-    /// Whether a command is currently starting or being polled — callers should disable their
-    /// action buttons while this is true, since firing a second command on top of an in-flight
-    /// one cancels the first (see `run`) rather than running both.
+    /// Whether a command is currently starting, being polled, or being cancelled — callers should
+    /// disable their action buttons while this is true, since firing a second command on top of an
+    /// in-flight one cancels the first (see `run`) rather than running both.
     var isBusy: Bool {
         switch state {
-        case .starting, .running: return true
+        case .starting, .running, .cancelling: return true
         case .idle, .finished, .failed: return false
         }
     }
@@ -76,15 +77,23 @@ final class CommandRunner {
     /// operator's way out now that `poll` has no built-in give-up bound.
     ///
     /// `cancelScript` itself can block until the run's current step finishes (see its doc
-    /// comment) — that's surfaced here as `.running`/`.finished` updating normally rather than
-    /// this call hanging silently, since it's really just a targeted `run`-like call of its own.
+    /// comment) — that's surfaced here as `.cancelling` while in flight, then `.finished`/
+    /// `.failed` normally, rather than this call hanging silently.
+    ///
+    /// `currentRunId` can still be `nil` here even though a command is visibly in progress: `run`
+    /// clears it synchronously before its `start()` call has necessarily reached the server, so a
+    /// `cancel()` landing in that narrow window has nothing to call `cancelScript` on yet. This
+    /// only cancels the local watch in that case — if `start()` had, in fact, already reached the
+    /// server, that run keeps going unwatched and uncancelled until it resolves on its own, the
+    /// same accepted trade-off as `coolerOff` overriding an in-progress `coolCamera` without
+    /// explicitly cancelling it first.
     func cancel() async {
         activeRun?.cancel()
         guard let runId = currentRunId else {
             state = .idle
             return
         }
-        state = .starting
+        state = .cancelling
         do {
             let status = try await client.cancelScript(runId: runId)
             state = .finished(status)
