@@ -107,6 +107,74 @@ public final class INDIMCPClient: Sendable {
         return try JSONDecoder().decode(Output.self, from: data)
     }
 
+    /// Subscribes to the resource at `uri` and returns a stream that yields its content — decoded
+    /// as `Envelope` then passed through `transform` (so a caller can unwrap e.g. `{"events":
+    /// [...]}` down to the bare `[IndiEvent]`/`[ScriptRunStatus]` it actually wants) — once
+    /// immediately after subscribing and again every time the server sends
+    /// `notifications/resources/updated` for it. See `messageEvents`/`scriptEvents`, the typed,
+    /// INDI-specific callers of this.
+    ///
+    /// The underlying MCP client has no way to unregister a notification handler once registered
+    /// (`onNotification` only ever appends) — the closure this creates lingers in memory for the
+    /// lifetime of this `INDIMCPClient`, even after the stream's consumer stops iterating and
+    /// `resources/unsubscribe` has been sent. It becomes an inert no-op at that point (it checks
+    /// `message.params.uri == uri`, and the server won't publish further updates for an
+    /// unsubscribed URI), so this is safe for the handful of long-lived streams a typical app
+    /// opens, but not a good fit for a caller creating and discarding many short-lived ones.
+    func subscribeToResourceUpdates<Envelope: Decodable & Sendable, Output: Sendable>(
+        uri: String,
+        decoding envelopeType: Envelope.Type,
+        transform: @escaping @Sendable (Envelope) -> Output
+    ) -> AsyncThrowingStream<Output, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    try await self.client.subscribeToResource(uri: uri)
+                    let envelope = try await self.readResourceContent(uri: uri, decoding: Envelope.self)
+                    continuation.yield(transform(envelope))
+                    await self.client.onNotification(ResourceUpdatedNotification.self) { message in
+                        guard message.params.uri == uri else { return }
+                        do {
+                            let envelope = try await self.readResourceContent(uri: uri, decoding: Envelope.self)
+                            continuation.yield(transform(envelope))
+                        } catch {
+                            continuation.finish(throwing: error)
+                        }
+                    }
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { [client] _ in
+                task.cancel()
+                Task {
+                    // ResourceUnsubscribe.Parameters has no public memberwise initializer (the
+                    // swift-sdk module only synthesizes one at `internal` access, unlike its
+                    // Codable init(from:), which does follow the type's own `public` access) —
+                    // going through Decodable is the only way to construct one from outside that
+                    // module.
+                    guard let params = try? JSONDecoder().decode(
+                        ResourceUnsubscribe.Parameters.self,
+                        from: JSONEncoder().encode(["uri": uri])
+                    ) else {
+                        return
+                    }
+                    _ = try? await client.send(ResourceUnsubscribe.request(params)).value
+                }
+            }
+        }
+    }
+
+    private func readResourceContent<Output: Decodable & Sendable>(
+        uri: String,
+        decoding type: Output.Type
+    ) async throws -> Output {
+        guard let text = try await client.readResource(uri: uri).first?.text else {
+            throw INDIMCPClientError.missingResourceContent(uri: uri)
+        }
+        return try JSONDecoder().decode(Output.self, from: Data(text.utf8))
+    }
+
     private func structuredContent(forToolNamed name: String, arguments: [String: Value]?) async throws -> Value {
         let context: RequestContext<CallTool.Result> = try await client.callTool(
             name: name, arguments: arguments
