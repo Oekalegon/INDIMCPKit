@@ -30,7 +30,7 @@ Because the kit's tool definitions mirror a specific INDIMCP-server release, the
 version it is aligned to (currently server `0.1.0`) and exposes that to consumers, so an app can detect drift
 between the kit it was built against and the server it's talking to.
 
-## Package layout (planned)
+## Package layout
 
 - **INDIMCPKit** (library) — MCP client core (connection/transport, tool discovery, typed request/response models)
   plus device-type abstractions built on top of the standard tools, e.g.:
@@ -62,4 +62,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Status
 
-Early planning stage — see the `INDIMCPKit` project in the todo tracker for the current task breakdown.
+The standard/built-in MCP tool set is modeled (server/driver management, messaging, rigs,
+observatories, scripts, and device control), the `Mount`/`Camera`/`FilterWheel`/`Focuser`
+device-type abstractions are built on top of it, and the SwiftUI test app exercises them —
+see the `INDIMCPKit` project in the todo tracker for what's still open (plate-solving/
+astrometry-index tools, ongoing hardening).
