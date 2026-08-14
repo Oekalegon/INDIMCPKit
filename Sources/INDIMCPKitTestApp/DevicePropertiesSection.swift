@@ -22,11 +22,20 @@ struct DevicePropertiesSection: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(properties.keys.sorted(), id: \.self) { name in
-                    if let property = properties[name] {
-                        propertyRow(name: name, property: property)
+                // A device can report a lot of properties (each with its own elements) — bounded
+                // and independently scrollable so a long list doesn't push the rest of this
+                // screen's controls off-screen, rather than growing the whole Form unboundedly.
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(properties.keys.sorted(), id: \.self) { name in
+                            if let property = properties[name] {
+                                propertyRow(name: name, property: property)
+                                Divider()
+                            }
+                        }
                     }
                 }
+                .frame(maxHeight: 300)
             }
         }
     }
