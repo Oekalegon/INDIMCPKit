@@ -71,6 +71,31 @@ struct INDICaptureSequencesIntegrationTests {
         #expect(calibrationSet.rigId == rig.id)
         #expect(calibrationSet.pausable == true)
 
+        // Every assertion above either omits gain/offset entirely or only checks the script's
+        // declared parameter *names* (`argumentKeysMatchDeclaredParameters`) — neither exercises
+        // the `if let gain`/`if let offset` branches that actually thread a supplied value into
+        // the request. A wrong `Value` case (or a typo'd key) for either would still pass both of
+        // those, since a mismatched key/type here surfaces as the server rejecting the run against
+        // the script's own JSON-schema-validated parameters, not as a Swift-side compile or decode
+        // failure — so this has to be a live call that actually succeeds. Reuses `rig` (rather
+        // than saving a second one) deliberately: a second concurrent `saveRig` call in this same
+        // suite hit a real INDIMCP-server race (`rig_store.save_rig`'s `load_rigs()` reloads the
+        // whole rigs directory into one shared, unlocked dict — two concurrent saves can each see
+        // a directory snapshot that doesn't yet include the other's just-written file, so one call
+        // can lose the race and its own `get_rig` lookup then fails with "Unknown rig").
+        let calibrationSetWithOptionalParameters = try await client.captureSensorCalibrationSet(
+            rigId: rig.id,
+            flatExposureSeconds: 1,
+            biasCount: 2,
+            flatCount: 2,
+            darkCount: 2,
+            gain: 100,
+            offset: 10,
+            biasExposureSeconds: 0.001
+        )
+        #expect(calibrationSetWithOptionalParameters.script == "capture_sensor_calibration_set")
+        #expect(calibrationSetWithOptionalParameters.rigId == rig.id)
+
         await client.disconnect()
     }
 
