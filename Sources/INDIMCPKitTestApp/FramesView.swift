@@ -14,6 +14,7 @@ struct FramesView: View {
             if let errorMessage = model.errorMessage {
                 Text(errorMessage)
                     .foregroundStyle(.red)
+                    .textSelection(.enabled)
                     .padding([.horizontal, .top])
             }
 
@@ -85,11 +86,13 @@ private struct FrameRow: View {
                 .font(.caption)
                 .foregroundStyle(.orange)
                 .lineLimit(2)
+                .textSelection(.enabled)
         case .failed(let message):
             Label(message, systemImage: "xmark.octagon")
                 .font(.caption)
                 .foregroundStyle(.red)
                 .lineLimit(2)
+                .textSelection(.enabled)
         }
     }
 

@@ -39,6 +39,7 @@ struct CreateRigView: View {
             if let saveError {
                 Text(saveError)
                     .foregroundStyle(.red)
+                    .textSelection(.enabled)
             }
 
             HStack {

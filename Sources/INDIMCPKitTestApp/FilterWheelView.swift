@@ -5,12 +5,16 @@ struct FilterWheelView: View {
     let filterWheel: FilterWheel
 
     @State private var runner: CommandRunner
+    @State private var observableDevice: ObservableDevice
     @State private var isConnected = false
     @State private var filterName = ""
+    let isActive: Bool
 
-    init(client: INDIMCPClient, rigId: String) {
+    init(client: INDIMCPClient, rigId: String, isActive: Bool) {
         self.filterWheel = client.filterWheel(rigId: rigId)
         _runner = State(initialValue: CommandRunner(client: client))
+        _observableDevice = State(initialValue: ObservableDevice(client: client, rigId: rigId, role: .filterWheel))
+        self.isActive = isActive
     }
 
     var body: some View {
@@ -34,10 +38,30 @@ struct FilterWheelView: View {
             Section("Status") {
                 CommandStatusView(state: runner.state) { Task { await runner.cancel() } }
             }
+
+            DevicePropertiesSection(
+                properties: observableDevice.properties,
+                isRefreshed: observableDevice.isRefreshed,
+                lastError: observableDevice.lastError
+            )
         }
         .padding()
         .navigationTitle("Filter Wheel")
         .task { await refreshConnectionState() }
+        // Scoped to isActive (whether this is the currently selected tab), not just view
+        // lifecycle: TabView on macOS keeps every tab's content view alive in the hierarchy the
+        // whole time the TabView exists, so onDisappear alone would never fire on a tab switch —
+        // only on disconnect/change rig. .task(id:) re-runs (cancelling the previous run) whenever
+        // isActive changes, so the live subscription only stays open while this tab is the one
+        // actually visible, not for every tab simultaneously for the whole session.
+        .task(id: isActive) {
+            if isActive {
+                await observableDevice.start()
+            } else {
+                await observableDevice.stop()
+            }
+        }
+        .onDisappear { Task { await observableDevice.stop() } }
     }
 
     private func run(_ start: @escaping @Sendable () async throws -> ScriptRunStarted) async {

@@ -48,6 +48,11 @@ public final class ObservableDevice: DeviceHandle {
     private var subscriptionTask: Task<Void, Never>?
     private var resyncTask: Task<Void, Never>?
 
+    /// The device `beginSubscription` last subscribed `messageEvents` for, if any — recorded so
+    /// `stop()` can explicitly unsubscribe that exact URI. See `stop()`'s doc comment for why this
+    /// can't just rely on cancelling `subscriptionTask` and letting the stream's own cleanup fire.
+    private var subscribedDevice: String?
+
     // No deinit cancelling these: `deinit` runs nonisolated even for a @MainActor class, and
     // can't touch MainActor-isolated stored properties to cancel them. Every task here captures
     // `self` weakly, so they stop mutating anything once this instance is gone — worst case they
@@ -77,9 +82,13 @@ public final class ObservableDevice: DeviceHandle {
     /// over a long session, since that stream can silently miss updates (`docs/Design.md#event-
     /// streams`) with nothing to notice on its own.
     public func start(resyncInterval: Duration? = .seconds(300)) async {
-        startTask?.cancel()
-        subscriptionTask?.cancel()
-        resyncTask?.cancel()
+        // A second start() landing while this teardown() is still awaiting the server's
+        // unsubscribe confirmation (actor reentrancy — this suspends at that await, so another
+        // call can interleave here before subscribedDevice is nilled) will read the same
+        // subscribedDevice and issue its own redundant unsubscribe for the same uri. Accepted:
+        // unsubscribe(uri:, session:) is a documented no-op if the uri wasn't subscribed, so the
+        // worst case is one wasted round-trip, not a correctness issue.
+        await teardown()
         lastError = nil
 
         let task = Task { [weak self] in
@@ -117,16 +126,41 @@ public final class ObservableDevice: DeviceHandle {
     /// Stops the live subscription and periodic resync (and any still-in-flight `start()` call).
     /// `properties`/`deviceName` are left as they last were — this doesn't clear observed state,
     /// just stops keeping it fresh.
-    public func stop() {
+    ///
+    /// `async`, and actually waits for the server to confirm the `messageEvents` unsubscribe,
+    /// rather than just cancelling `subscriptionTask` and returning immediately: cancelling the
+    /// stream's consumer *does* eventually trigger its own unsubscribe as a side effect (see
+    /// `INDIMCPClient.subscribeToResourceUpdates`'s `onTermination`), but on a detached,
+    /// un-awaited `Task` — a caller that calls `stop()` and then `start()` again in quick
+    /// succession (e.g. `DeviceTabsView`'s `isActive`-scoped `.task(id:)`, switching away from and
+    /// back to a device tab) could have its fresh subscribe race that stale unsubscribe over the
+    /// wire. If the old unsubscribe lands *after* the new subscribe, the server silently drops the
+    /// new subscription from its subscriber set — this instance believes it's live but never
+    /// receives another event for the rest of the session, exactly the "properties stopped
+    /// updating" symptom this fixes. Awaiting the unsubscribe here, before returning, guarantees
+    /// it's fully resolved server-side before any subsequent `start()` call can re-subscribe.
+    public func stop() async {
+        await teardown()
+    }
+
+    /// Cancels every in-flight task and, if `beginSubscription` had subscribed to `messageEvents`,
+    /// waits for the server to confirm it's unsubscribed before returning — see `stop()`'s doc
+    /// comment for why that has to be awaited rather than left to fire-and-forget cleanup.
+    private func teardown() async {
         startTask?.cancel()
         startTask = nil
         subscriptionTask?.cancel()
         subscriptionTask = nil
         resyncTask?.cancel()
         resyncTask = nil
+        if let subscribedDevice {
+            await client.unsubscribeFromResource(uri: INDIMCPClient.messagesURI(device: subscribedDevice))
+            self.subscribedDevice = nil
+        }
     }
 
     private func beginSubscription(device: String) {
+        subscribedDevice = device
         subscriptionTask = Task { [weak self] in
             guard let self else { return }
             do {

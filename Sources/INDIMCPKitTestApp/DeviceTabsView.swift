@@ -4,25 +4,37 @@ import SwiftUI
 /// One screen per device type, showing its default tool connections in action — see README.md's
 /// planned layout for this app.
 struct DeviceTabsView: View {
+    enum Tab {
+        case server, frames, mount, camera, filterWheel, focuser
+    }
+
     let client: INDIMCPClient
     let rigId: String
     let onChangeRig: () -> Void
     let onDisconnect: () -> Void
 
+    @State private var selectedTab = Tab.server
+
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             ServerControlView(client: client, rigId: rigId)
                 .tabItem { Label("Server", systemImage: "server.rack") }
+                .tag(Tab.server)
             FramesView(client: client)
                 .tabItem { Label("Frames", systemImage: "photo.on.rectangle") }
-            MountView(client: client, rigId: rigId)
+                .tag(Tab.frames)
+            MountView(client: client, rigId: rigId, isActive: selectedTab == .mount)
                 .tabItem { Label("Mount", systemImage: "scope") }
-            CameraView(client: client, rigId: rigId)
+                .tag(Tab.mount)
+            CameraView(client: client, rigId: rigId, isActive: selectedTab == .camera)
                 .tabItem { Label("Camera", systemImage: "camera") }
-            FilterWheelView(client: client, rigId: rigId)
+                .tag(Tab.camera)
+            FilterWheelView(client: client, rigId: rigId, isActive: selectedTab == .filterWheel)
                 .tabItem { Label("Filter Wheel", systemImage: "circle.grid.3x3") }
-            FocuserView(client: client, rigId: rigId)
+                .tag(Tab.filterWheel)
+            FocuserView(client: client, rigId: rigId, isActive: selectedTab == .focuser)
                 .tabItem { Label("Focuser", systemImage: "camera.macro") }
+                .tag(Tab.focuser)
         }
         .navigationTitle("Rig: \(rigId)")
         .toolbar {
