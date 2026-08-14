@@ -140,6 +140,30 @@ public final class INDIMCPClient: Sendable {
         transform: @escaping @Sendable (Envelope) -> Output
     ) -> AsyncThrowingStream<Output, Error> {
         AsyncThrowingStream { continuation in
+            // Coalesces re-reads triggered by `onNotification` so at most one `readResourceContent`
+            // call is ever in flight for this subscription — see `readAndYield`'s own comment for
+            // why letting them run concurrently and unordered is unsafe.
+            let coalescer = ReadCoalescer()
+
+            // Detached from whatever called it (the initial read below runs it inline from
+            // `task`'s own body, never from `Client`'s receive loop; the notification handler
+            // below always runs it from a freshly spawned `Task`) — `shouldStartReading`/
+            // `finishedReading` are plain actor hops, not network round-trips, so awaiting them
+            // here never risks the deadlock `readAndYield`'s own comment describes.
+            @Sendable
+            func readAndYield() async {
+                guard await coalescer.shouldStartReading() else { return }
+                repeat {
+                    do {
+                        let envelope = try await self.readResourceContent(uri: uri, decoding: Envelope.self)
+                        continuation.yield(transform(envelope))
+                    } catch {
+                        continuation.finish(throwing: error)
+                        return
+                    }
+                } while await coalescer.finishedReading()
+            }
+
             let task = Task {
                 do {
                     // Registered before subscribing/reading, not after: a notification that
@@ -160,18 +184,20 @@ public final class INDIMCPClient: Sendable {
                         // ever be delivered by the very task this handler is currently blocking.
                         // Detaching lets the handler return immediately, so the receive loop stays
                         // free to deliver this read's response (and everything after it).
-                        Task {
-                            do {
-                                let envelope = try await self.readResourceContent(uri: uri, decoding: Envelope.self)
-                                continuation.yield(transform(envelope))
-                            } catch {
-                                continuation.finish(throwing: error)
-                            }
-                        }
+                        //
+                        // Routed through `readAndYield`/`coalescer`, not a bare `Task { await
+                        // self.readResourceContent(...) }`, so a burst of several notifications
+                        // arriving close together can't run their reads concurrently: each fetches
+                        // the *current* window at whatever moment it actually runs, so an earlier
+                        // notification's read finishing *after* a later one's would yield a stale
+                        // snapshot last, silently reverting `ObservableDevice.properties` to an
+                        // older state. Coalescing keeps reads serialized — at most one in flight,
+                        // with any notification that arrives mid-read simply triggering one more
+                        // read afterward rather than a concurrent one.
+                        Task { await readAndYield() }
                     }
                     try await self.client.subscribeToResource(uri: uri)
-                    let envelope = try await self.readResourceContent(uri: uri, decoding: Envelope.self)
-                    continuation.yield(transform(envelope))
+                    await readAndYield()
                 } catch {
                     continuation.finish(throwing: error)
                 }
@@ -180,6 +206,37 @@ public final class INDIMCPClient: Sendable {
                 task.cancel()
                 Task { await Self.unsubscribeFromResource(uri: uri, client: client) }
             }
+        }
+    }
+
+    /// Serializes `subscribeToResourceUpdates`'s re-reads to at most one in flight at a time —
+    /// see that function's `readAndYield` for why concurrent, unordered reads are unsafe here.
+    private actor ReadCoalescer {
+        private var isReading = false
+        private var rereadRequested = false
+
+        /// `true` if the caller should actually read now. `false` means a read is already in
+        /// flight; this call's worth of "something changed" is folded into that read's own
+        /// follow-up loop instead of starting a second, concurrent one.
+        func shouldStartReading() -> Bool {
+            guard !isReading else {
+                rereadRequested = true
+                return false
+            }
+            isReading = true
+            return true
+        }
+
+        /// Call once a read completes. `true` means another notification arrived while it was in
+        /// flight and the caller should read again before considering things settled; `false`
+        /// means nothing new arrived and the caller is done.
+        func finishedReading() -> Bool {
+            guard rereadRequested else {
+                isReading = false
+                return false
+            }
+            rereadRequested = false
+            return true
         }
     }
 
