@@ -5,7 +5,7 @@ import SwiftUI
 /// planned layout for this app.
 struct DeviceTabsView: View {
     enum Tab {
-        case server, frames, mount, camera, filterWheel, focuser
+        case server, messages, frames, mount, camera, filterWheel, focuser
     }
 
     let client: INDIMCPClient
@@ -20,6 +20,9 @@ struct DeviceTabsView: View {
             ServerControlView(client: client, rigId: rigId)
                 .tabItem { Label("Server", systemImage: "server.rack") }
                 .tag(Tab.server)
+            MessageStreamView(client: client, rigId: rigId, isActive: selectedTab == .messages)
+                .tabItem { Label("Messages", systemImage: "text.bubble") }
+                .tag(Tab.messages)
             FramesView(client: client)
                 .tabItem { Label("Frames", systemImage: "photo.on.rectangle") }
                 .tag(Tab.frames)
