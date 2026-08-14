@@ -18,6 +18,7 @@ struct ServerControlView: View {
             if let errorMessage = model.errorMessage {
                 Text(errorMessage)
                     .foregroundStyle(.red)
+                    .textSelection(.enabled)
             }
 
             Section("INDI Server") {

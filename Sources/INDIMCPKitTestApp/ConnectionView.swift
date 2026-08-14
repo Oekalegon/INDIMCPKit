@@ -16,6 +16,7 @@ struct ConnectionView: View {
             if case .failed(let message) = model.connectionStatus {
                 Text(message)
                     .foregroundStyle(.red)
+                    .textSelection(.enabled)
             }
 
             HStack {

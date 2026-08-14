@@ -15,6 +15,7 @@ struct DevicePropertiesSection: View {
                 Text(lastError)
                     .font(.caption)
                     .foregroundStyle(.red)
+                    .textSelection(.enabled)
             }
 
             if properties.isEmpty {
@@ -25,6 +26,9 @@ struct DevicePropertiesSection: View {
                 // A device can report a lot of properties (each with its own elements) — bounded
                 // and independently scrollable so a long list doesn't push the rest of this
                 // screen's controls off-screen, rather than growing the whole Form unboundedly.
+                // .textSelection(.enabled) here covers every Text below it (name, state, every
+                // element's key/value) — useful for copying a specific value out for debugging,
+                // not just the error message above.
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(properties.keys.sorted(), id: \.self) { name in
@@ -36,6 +40,7 @@ struct DevicePropertiesSection: View {
                     }
                 }
                 .frame(maxHeight: 300)
+                .textSelection(.enabled)
             }
         }
     }

@@ -34,9 +34,11 @@ struct CommandStatusView: View {
         case .finished(let status):
             Label(description(for: status), systemImage: symbol(for: status))
                 .foregroundStyle(color(for: status))
+                .textSelection(.enabled)
         case .failed(let message):
             Label(message, systemImage: "xmark.octagon")
                 .foregroundStyle(.red)
+                .textSelection(.enabled)
         }
     }
 

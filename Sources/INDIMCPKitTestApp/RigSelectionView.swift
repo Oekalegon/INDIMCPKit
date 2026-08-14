@@ -28,6 +28,7 @@ struct RigSelectionView: View {
             } else if let loadError {
                 Text(loadError)
                     .foregroundStyle(.red)
+                    .textSelection(.enabled)
             } else if rigs.isEmpty {
                 Text("No rigs configured on this server yet.")
                     .foregroundStyle(.secondary)
