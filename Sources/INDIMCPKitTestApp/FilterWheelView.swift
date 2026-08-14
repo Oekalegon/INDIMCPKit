@@ -58,10 +58,10 @@ struct FilterWheelView: View {
             if isActive {
                 await observableDevice.start()
             } else {
-                observableDevice.stop()
+                await observableDevice.stop()
             }
         }
-        .onDisappear { observableDevice.stop() }
+        .onDisappear { Task { await observableDevice.stop() } }
     }
 
     private func run(_ start: @escaping @Sendable () async throws -> ScriptRunStarted) async {

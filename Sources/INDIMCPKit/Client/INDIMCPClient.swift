@@ -26,7 +26,19 @@ public final class INDIMCPClient: Sendable {
         clientVersion: String = "0.1.0"
     ) {
         self.client = Client(name: clientName, version: clientVersion)
-        self.transport = HTTPClientTransport(endpoint: endpoint)
+        // `HTTPClientTransport.send(_:)` doesn't return for a given request until that request's
+        // own SSE response stream closes — if INDIMCP-server (or an intermediary) leaves those
+        // per-request streams open longer than it needs to, each concurrent tool call quietly
+        // pins one of `URLSession`'s connections-per-host slots for its whole lifetime. The
+        // default `.default` configuration caps that at 6, which a normal app session blows
+        // through almost immediately (server start, messaging start, rig list, then the Server
+        // tab's own 5 concurrent status calls) — every call after the 6th then queues forever
+        // waiting for a free connection, with nothing to time it out. Raising the cap well above
+        // anything this app issues concurrently is a pragmatic mitigation for that; the real fix,
+        // if this diagnosis holds, belongs in INDIMCP-server's response-stream lifecycle.
+        let configuration = URLSessionConfiguration.default
+        configuration.httpMaximumConnectionsPerHost = 32
+        self.transport = HTTPClientTransport(endpoint: endpoint, configuration: configuration)
         self.endpoint = endpoint
     }
 
@@ -139,11 +151,22 @@ public final class INDIMCPClient: Sendable {
                     // yet, so there's no risk of the handler firing before it's meaningful.
                     await self.client.onNotification(ResourceUpdatedNotification.self) { message in
                         guard message.params.uri == uri else { return }
-                        do {
-                            let envelope = try await self.readResourceContent(uri: uri, decoding: Envelope.self)
-                            continuation.yield(transform(envelope))
-                        } catch {
-                            continuation.finish(throwing: error)
+                        // Must not `await` the read inline: the swift-sdk's `Client` runs one
+                        // single task that reads every incoming message (responses included) and
+                        // dispatches each to its notification handlers sequentially, awaiting each
+                        // handler before reading the next message (`Client.handleMessage`). This
+                        // handler issuing its own request and awaiting *that* request's response
+                        // inline would deadlock that same task forever — the response can only
+                        // ever be delivered by the very task this handler is currently blocking.
+                        // Detaching lets the handler return immediately, so the receive loop stays
+                        // free to deliver this read's response (and everything after it).
+                        Task {
+                            do {
+                                let envelope = try await self.readResourceContent(uri: uri, decoding: Envelope.self)
+                                continuation.yield(transform(envelope))
+                            } catch {
+                                continuation.finish(throwing: error)
+                            }
                         }
                     }
                     try await self.client.subscribeToResource(uri: uri)
@@ -155,22 +178,37 @@ public final class INDIMCPClient: Sendable {
             }
             continuation.onTermination = { [client] _ in
                 task.cancel()
-                Task {
-                    // ResourceUnsubscribe.Parameters has no public memberwise initializer (the
-                    // swift-sdk module only synthesizes one at `internal` access, unlike its
-                    // Codable init(from:), which does follow the type's own `public` access) —
-                    // going through Decodable is the only way to construct one from outside that
-                    // module.
-                    guard let params = try? JSONDecoder().decode(
-                        ResourceUnsubscribe.Parameters.self,
-                        from: JSONEncoder().encode(["uri": uri])
-                    ) else {
-                        return
-                    }
-                    _ = try? await client.send(ResourceUnsubscribe.request(params)).value
-                }
+                Task { await Self.unsubscribeFromResource(uri: uri, client: client) }
             }
         }
+    }
+
+    /// Sends `resources/unsubscribe` for `uri` and waits for the round-trip to complete.
+    ///
+    /// `subscribeToResourceUpdates`'s own `onTermination` cleanup already does this, but as a
+    /// detached, un-awaited `Task` — fine as a backstop for a stream whose consumer simply stops
+    /// iterating, but useless to a caller that needs the server to have actually forgotten this
+    /// subscription *before* it does anything else, such as re-subscribing to the exact same
+    /// `uri` (see `ObservableDevice.stop()`). Without waiting here, a fresh subscribe can race
+    /// this unsubscribe over the wire; if the unsubscribe lands second, it silently discards the
+    /// new subscription from the server's subscriber set — the client believes it's subscribed
+    /// but never receives another update.
+    func unsubscribeFromResource(uri: String) async {
+        await Self.unsubscribeFromResource(uri: uri, client: client)
+    }
+
+    private static func unsubscribeFromResource(uri: String, client: Client) async {
+        // ResourceUnsubscribe.Parameters has no public memberwise initializer (the swift-sdk
+        // module only synthesizes one at `internal` access, unlike its Codable init(from:), which
+        // does follow the type's own `public` access) — going through Decodable is the only way
+        // to construct one from outside that module.
+        guard let params = try? JSONDecoder().decode(
+            ResourceUnsubscribe.Parameters.self,
+            from: JSONEncoder().encode(["uri": uri])
+        ) else {
+            return
+        }
+        _ = try? await client.send(ResourceUnsubscribe.request(params)).value
     }
 
     private func readResourceContent<Output: Decodable & Sendable>(

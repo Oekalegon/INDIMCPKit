@@ -69,9 +69,9 @@ struct CameraView: View {
             if isActive {
                 await model.observableDevice.start()
             } else {
-                model.observableDevice.stop()
+                await model.observableDevice.stop()
             }
         }
-        .onDisappear { model.observableDevice.stop() }
+        .onDisappear { Task { await model.observableDevice.stop() } }
     }
 }
