@@ -211,7 +211,11 @@ public final class INDIMCPClient: Sendable {
 
     /// Serializes `subscribeToResourceUpdates`'s re-reads to at most one in flight at a time —
     /// see that function's `readAndYield` for why concurrent, unordered reads are unsafe here.
-    private actor ReadCoalescer {
+    ///
+    /// `internal` rather than `private`, purely so its coalescing behavior is directly
+    /// unit-testable (`@testable import`) without needing a live server or a fake transport — same
+    /// reasoning as `ObservableDevice.apply(_:)`'s own access level.
+    actor ReadCoalescer {
         private var isReading = false
         private var rereadRequested = false
 

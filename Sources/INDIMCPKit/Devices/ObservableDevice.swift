@@ -82,6 +82,12 @@ public final class ObservableDevice: DeviceHandle {
     /// over a long session, since that stream can silently miss updates (`docs/Design.md#event-
     /// streams`) with nothing to notice on its own.
     public func start(resyncInterval: Duration? = .seconds(300)) async {
+        // A second start() landing while this teardown() is still awaiting the server's
+        // unsubscribe confirmation (actor reentrancy — this suspends at that await, so another
+        // call can interleave here before subscribedDevice is nilled) will read the same
+        // subscribedDevice and issue its own redundant unsubscribe for the same uri. Accepted:
+        // unsubscribe(uri:, session:) is a documented no-op if the uri wasn't subscribed, so the
+        // worst case is one wasted round-trip, not a correctness issue.
         await teardown()
         lastError = nil
 
