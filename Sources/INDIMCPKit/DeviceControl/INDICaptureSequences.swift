@@ -2,13 +2,14 @@ import MCP
 
 /// Typed wrappers for the built-in composed capture-sequence scripts.
 ///
-/// Unlike every other file in `DeviceControl`, these four scripts (`capture_dark_sequence`,
-/// `capture_bias_sequence`, `capture_flat_sequence`, `capture_light_sequence`) have no dedicated
-/// server-side `@mcp.tool()` of their own — confirmed against `INDIMCP-server`'s `server.py`,
-/// which only auto-generates a typed tool for single-action scripts (`park`, `slew`,
-/// `capture_frame`, ...). These composed sequences are reachable only through the generic
-/// `run_script` mechanism server-side, so these wrappers call `runScript(scriptId:rigId:
-/// parameters:locationId:)` directly rather than a same-named tool, unlike `park`/`slew`/etc.
+/// Unlike every other file in `DeviceControl`, these five scripts (`capture_dark_sequence`,
+/// `capture_bias_sequence`, `capture_flat_sequence`, `capture_light_sequence`,
+/// `capture_sensor_calibration_set`) have no dedicated server-side `@mcp.tool()` of their own —
+/// confirmed against `INDIMCP-server`'s `server.py`, which only auto-generates a typed tool for
+/// single-action scripts (`park`, `slew`, `capture_frame`, ...). These composed sequences are
+/// reachable only through the generic `run_script` mechanism server-side, so these wrappers call
+/// `runScript(scriptId:rigId:parameters:locationId:)` directly rather than a same-named tool,
+/// unlike `park`/`slew`/etc.
 extension INDIMCPClient {
     /// Cools the rig's camera to `targetTempC`, then captures `count` dark frames.
     ///
@@ -107,6 +108,48 @@ extension INDIMCPClient {
         }
         return try await runScript(
             scriptId: "capture_light_sequence",
+            rigId: rigId,
+            parameters: parameters,
+            locationId: locationId
+        )
+    }
+
+    /// Captures a bias/flat/flat-dark calibration set at a single gain/offset setting
+    /// (`capture_sensor_calibration_set`, INDIMCP-81) — `biasCount` bias frames, `flatCount` flat
+    /// frames, and `darkCount` flat-dark frames (a dark frame at `flatExposureSeconds`, matching
+    /// the flats), all at the given `gain`/`offset`.
+    ///
+    /// The per-setting building block for a sensor gain/offset sweep: this script has no
+    /// list-valued parameter or loop construct to sweep a range itself, so sweeping multiple
+    /// settings means calling this once per setting. Deliberately skips mount positioning, filter
+    /// selection, and focus, like `captureBiasSequence`/`captureDarkSequence` — a calibration
+    /// frame's illumination/focus source is whatever the rig is already pointed at.
+    public func captureSensorCalibrationSet(
+        rigId: String,
+        flatExposureSeconds: Double,
+        biasCount: Int,
+        flatCount: Int,
+        darkCount: Int,
+        gain: Double? = nil,
+        offset: Double? = nil,
+        biasExposureSeconds: Double = 0.0,
+        locationId: String? = nil
+    ) async throws -> ScriptRunStarted {
+        var parameters: [String: Value] = [
+            "flatExposureSeconds": .double(flatExposureSeconds),
+            "biasCount": .int(biasCount),
+            "flatCount": .int(flatCount),
+            "darkCount": .int(darkCount),
+            "biasExposureSeconds": .double(biasExposureSeconds),
+        ]
+        if let gain {
+            parameters["gain"] = .double(gain)
+        }
+        if let offset {
+            parameters["offset"] = .double(offset)
+        }
+        return try await runScript(
+            scriptId: "capture_sensor_calibration_set",
             rigId: rigId,
             parameters: parameters,
             locationId: locationId

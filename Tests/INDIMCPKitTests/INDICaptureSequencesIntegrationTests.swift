@@ -60,6 +60,17 @@ struct INDICaptureSequencesIntegrationTests {
         )
         #expect(light.script == "capture_light_sequence")
 
+        let calibrationSet = try await client.captureSensorCalibrationSet(
+            rigId: rig.id,
+            flatExposureSeconds: 1,
+            biasCount: 5,
+            flatCount: 5,
+            darkCount: 5
+        )
+        #expect(calibrationSet.script == "capture_sensor_calibration_set")
+        #expect(calibrationSet.rigId == rig.id)
+        #expect(calibrationSet.pausable == true)
+
         await client.disconnect()
     }
 
@@ -83,6 +94,12 @@ struct INDICaptureSequencesIntegrationTests {
         #expect(
             Set(light.parameters.keys)
                 == ["ra", "dec", "objectName", "filterName", "focusPosition", "targetTempC", "exposureSeconds", "count"]
+        )
+
+        let calibrationSet = try await client.getScript(id: "capture_sensor_calibration_set")
+        #expect(
+            Set(calibrationSet.parameters.keys)
+                == ["gain", "offset", "biasExposureSeconds", "flatExposureSeconds", "biasCount", "flatCount", "darkCount"]
         )
 
         await client.disconnect()
