@@ -16,7 +16,7 @@ struct MessageStreamView: View {
 
     var body: some View {
         Form {
-            if let lastError = model.lastError {
+            if let lastError = model.stream.lastError ?? model.lastError {
                 Text(lastError)
                     .foregroundStyle(.red)
                     .textSelection(.enabled)
@@ -31,8 +31,8 @@ struct MessageStreamView: View {
                 }
             }
 
-            Section("Events (\(model.events.count))") {
-                if model.events.isEmpty {
+            Section("Events (\(model.stream.events.count))") {
+                if model.stream.events.isEmpty {
                     Text("No events received yet.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -43,7 +43,7 @@ struct MessageStreamView: View {
                     // this screen off-screen as it fills up.
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
-                            ForEach(Array(model.events.enumerated()), id: \.offset) { _, event in
+                            ForEach(Array(model.stream.events.enumerated()), id: \.offset) { _, event in
                                 eventRow(event)
                                 Divider()
                             }
@@ -60,15 +60,18 @@ struct MessageStreamView: View {
         // Scoped to isActive, not just view lifecycle — see CameraView's identical .task(id:) for
         // why TabView on macOS needs this rather than onDisappear alone. Also re-runs whenever
         // selectedDevice changes, so switching the picker restarts the subscription scoped to the
-        // newly selected device.
+        // newly selected device. `model.start`/`stop` are async and awaited here (rather than
+        // fire-and-forget) since `ObservableMessageStream.start(device:)` awaits the previous
+        // subscription's confirmed unsubscribe before issuing the next subscribe — see its own
+        // doc comment for why that ordering matters when the selection oscillates.
         .task(id: TaskID(isActive: isActive, device: selectedDevice)) {
             if isActive {
-                model.start(device: selectedDevice)
+                await model.start(device: selectedDevice)
             } else {
-                model.stop()
+                await model.stop()
             }
         }
-        .onDisappear { model.stop() }
+        .onDisappear { Task { await model.stop() } }
     }
 
     /// `.task(id:)` requires its id to be `Equatable`; a plain tuple isn't, so this wraps the two
