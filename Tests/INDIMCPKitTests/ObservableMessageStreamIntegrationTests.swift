@@ -30,6 +30,10 @@ struct ObservableMessageStreamIntegrationTests {
     /// doing — see this suite's own doc comment.
     private static let testDevice = "INDIMCPKit ObservableMessageStreamIntegrationTests Device"
 
+    /// A second fixed, never-real device name, distinct from `testDevice` — used by
+    /// `oscillatingDeviceDoesNotHang` to exercise switching between two scopes.
+    private static let testDeviceB = testDevice + " B"
+
     /// `start(device:)` only awaits the *previous* subscription's confirmed unsubscribe — like
     /// `ObservableDevice.start()`, it doesn't await the *new* subscription's first read, which
     /// happens inside `beginSubscription`'s independently-running `Task`. So `hasReceivedInitialWindow`
@@ -100,7 +104,7 @@ struct ObservableMessageStreamIntegrationTests {
         // are fixed, never-real device names (see `testDevice`'s own doc comment) so this doesn't
         // depend on any real driver ever existing for either.
         await stream.start(device: Self.testDevice)
-        await stream.start(device: Self.testDevice + " B")
+        await stream.start(device: Self.testDeviceB)
         await stream.start(device: Self.testDevice)
         try await waitForInitialWindow(stream)
 
