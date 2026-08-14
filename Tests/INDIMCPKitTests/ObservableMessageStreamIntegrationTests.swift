@@ -6,8 +6,8 @@ import Testing
 /// Exercises `ObservableMessageStream` against a real, running INDIMCP-server.
 ///
 /// This dev environment has no real INDI driver catalog (see `DeviceAbstractionsIntegrationTests`'
-/// doc comment) — no messaging events ever actually flow with nothing connected, so this can't
-/// exercise the live-update path for real (see `INDIEventStreamsIntegrationTests.
+/// doc comment) — no *device* messaging events ever actually flow with nothing connected, so this
+/// can't exercise the live-update path for real (see `INDIEventStreamsIntegrationTests.
 /// scriptEventsStreamsLiveUpdates` for how the equivalent scripting-layer stream *is* exercised
 /// live, by actually running a script). It's scoped to what's verifiable without a driver: that
 /// `start(device:)` completes with a confirmed initial (empty) window rather than hanging, that
@@ -15,8 +15,25 @@ import Testing
 /// for — that rapidly oscillating the scoped device (A → B → A) doesn't hang or leave the stream
 /// stuck unable to (re)subscribe, which is exactly the failure mode an unawaited unsubscribe could
 /// produce (see this type's own doc comment).
+///
+/// Every subscription here is scoped to a fixed, never-real device name (`testDevice`), never
+/// the unscoped `indi://messages` stream: unlike a device-scoped one, the *unscoped* stream is
+/// server-wide, so its "confirmed empty" assertion would be flaky whenever some other live-server
+/// suite (`INDIServerManagementIntegrationTests`, `INDIMessagingIntegrationTests`, ...) happens to
+/// be running concurrently and has actually started `indiserver`/messaging — that can legitimately
+/// publish real, unrelated events (e.g. indiserver's own startup messages, which carry no device
+/// name) onto the same shared unscoped window this suite would otherwise be asserting against.
 @Suite("Observable message stream (live server)")
 struct ObservableMessageStreamIntegrationTests {
+    /// A device name no real driver in this dev environment ever reports as, so a subscription
+    /// scoped to it stays empty regardless of what other live-server suites are concurrently
+    /// doing — see this suite's own doc comment.
+    private static let testDevice = "INDIMCPKit ObservableMessageStreamIntegrationTests Device"
+
+    /// A second fixed, never-real device name, distinct from `testDevice` — used by
+    /// `oscillatingDeviceDoesNotHang` to exercise switching between two scopes.
+    private static let testDeviceB = testDevice + " B"
+
     /// `start(device:)` only awaits the *previous* subscription's confirmed unsubscribe — like
     /// `ObservableDevice.start()`, it doesn't await the *new* subscription's first read, which
     /// happens inside `beginSubscription`'s independently-running `Task`. So `hasReceivedInitialWindow`
@@ -39,7 +56,7 @@ struct ObservableMessageStreamIntegrationTests {
         let client = try await connectedTestClient()
         let stream = await ObservableMessageStream(client: client)
 
-        await stream.start()
+        await stream.start(device: Self.testDevice)
         try await waitForInitialWindow(stream)
 
         #expect(await stream.events.isEmpty)
@@ -57,11 +74,11 @@ struct ObservableMessageStreamIntegrationTests {
         let client = try await connectedTestClient()
         let stream = await ObservableMessageStream(client: client)
 
-        await stream.start()
+        await stream.start(device: Self.testDevice)
         try await waitForInitialWindow(stream)
 
         await stream.stop()
-        await stream.start(device: "Not Connected Camera")
+        await stream.start(device: Self.testDevice)
         try await waitForInitialWindow(stream)
 
         #expect(await stream.events.isEmpty)
@@ -83,10 +100,12 @@ struct ObservableMessageStreamIntegrationTests {
         // resubscribe design is for. A version that instead fired a fire-and-forget unsubscribe
         // per switch could leave the last subscribe silently dropped server-side — which would
         // show up here as the final `waitForInitialWindow` timing out (recording an issue)
-        // rather than the poll ever seeing `hasReceivedInitialWindow` flip to `true`.
-        await stream.start(device: "Not Connected Camera")
-        await stream.start(device: "Not Connected Mount")
-        await stream.start(device: "Not Connected Camera")
+        // rather than the poll ever seeing `hasReceivedInitialWindow` flip to `true`. Both names
+        // are fixed, never-real device names (see `testDevice`'s own doc comment) so this doesn't
+        // depend on any real driver ever existing for either.
+        await stream.start(device: Self.testDevice)
+        await stream.start(device: Self.testDeviceB)
+        await stream.start(device: Self.testDevice)
         try await waitForInitialWindow(stream)
 
         #expect(await stream.events.isEmpty)
