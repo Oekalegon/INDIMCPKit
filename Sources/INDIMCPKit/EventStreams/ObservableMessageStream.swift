@@ -31,6 +31,14 @@ public final class ObservableMessageStream {
     /// which may repeat or drop entries relative to the previous one).
     public private(set) var events: [IndiEvent] = []
 
+    /// Whether `events` reflects at least one window actually read from the server since the most
+    /// recent `start(device:)` call — lets a consumer distinguish "still waiting on the first
+    /// read" from "confirmed empty" the same way `DeviceProperties.refreshed` lets
+    /// `ObservableDevice.isRefreshed` do for property snapshots. `false` immediately after
+    /// `start(device:)`, `true` from the first yielded window onward, and reset to `false` again
+    /// by the next `start(device:)` call.
+    public private(set) var hasReceivedInitialWindow = false
+
     /// The most recent error from the live subscription, if any. `nil` right after a successful
     /// `start(device:)` call, cleared again on the next one.
     public private(set) var lastError: String?
@@ -62,6 +70,7 @@ public final class ObservableMessageStream {
         await teardown()
         lastError = nil
         events = []
+        hasReceivedInitialWindow = false
         subscribedDevice = device
         isSubscribed = true
         beginSubscription(device: device)
@@ -96,6 +105,7 @@ public final class ObservableMessageStream {
             do {
                 for try await window in self.client.messageEvents(device: device) {
                     self.events = window
+                    self.hasReceivedInitialWindow = true
                 }
             } catch {
                 if !Task.isCancelled {

@@ -32,7 +32,11 @@ struct MessageStreamView: View {
             }
 
             Section("Events (\(model.stream.events.count))") {
-                if model.stream.events.isEmpty {
+                if !model.stream.hasReceivedInitialWindow {
+                    Text("Loading…")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if model.stream.events.isEmpty {
                     Text("No events received yet.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
