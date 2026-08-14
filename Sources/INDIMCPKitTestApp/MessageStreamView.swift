@@ -86,7 +86,7 @@ struct MessageStreamView: View {
             HStack(spacing: 6) {
                 if let state = event.state {
                     Circle()
-                        .fill(color(for: state))
+                        .fill(state.testAppIndicatorColor)
                         .frame(width: 8, height: 8)
                         .help(state.rawValue)
                 }
@@ -135,15 +135,5 @@ struct MessageStreamView: View {
             }
         }
         .padding(.vertical, 3)
-    }
-
-    private func color(for state: PropertyState) -> Color {
-        switch state {
-        case .idle: return .gray
-        case .ok: return .green
-        case .busy: return .yellow
-        case .alert: return .red
-        case .other: return .secondary
-        }
     }
 }

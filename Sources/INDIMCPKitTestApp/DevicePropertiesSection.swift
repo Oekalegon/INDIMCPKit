@@ -50,7 +50,7 @@ struct DevicePropertiesSection: View {
             HStack(spacing: 6) {
                 if let state = property.state {
                     Circle()
-                        .fill(color(for: state))
+                        .fill(state.testAppIndicatorColor)
                         .frame(width: 8, height: 8)
                         .help(state.rawValue)
                 }
@@ -65,7 +65,7 @@ struct DevicePropertiesSection: View {
                 if let state = property.state {
                     Text(state.rawValue)
                         .font(.caption)
-                        .foregroundStyle(color(for: state))
+                        .foregroundStyle(state.testAppIndicatorColor)
                 }
             }
 
@@ -88,15 +88,5 @@ struct DevicePropertiesSection: View {
             }
         }
         .padding(.vertical, 3)
-    }
-
-    private func color(for state: PropertyState) -> Color {
-        switch state {
-        case .idle: return .gray
-        case .ok: return .green
-        case .busy: return .yellow
-        case .alert: return .red
-        case .other: return .secondary
-        }
     }
 }
