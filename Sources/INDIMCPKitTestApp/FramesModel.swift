@@ -11,13 +11,14 @@ final class FramesModel {
     enum DownloadState: Equatable {
         case idle
         case downloading
-        /// Downloaded, its local size matched the server-reported `sizeBytes`, and
-        /// `confirmFrameTransfer` succeeded.
+        /// Downloaded, its local content passed verification — a checksum comparison for a frame
+        /// that has one, a size comparison as a fallback for a legacy frame that doesn't (see
+        /// `download(_:)`) — and `confirmFrameTransfer` succeeded.
         case succeeded(URL)
-        /// Downloaded, but not confirmed — either the local file's size didn't match what the
-        /// server reported (a real integrity concern, not just a formality), or it matched but
-        /// the `confirmFrameTransfer` call itself failed. Either way the file is still on disk at
-        /// `destination`, just not marked as safely transferred server-side.
+        /// Downloaded, but not confirmed — either verification failed (a real integrity concern,
+        /// not just a formality), or it passed but the `confirmFrameTransfer` call itself failed.
+        /// Either way the file is still on disk at `destination`, just not marked as safely
+        /// transferred server-side.
         case downloadedNotConfirmed(destination: URL, reason: String)
         case failed(String)
     }
@@ -48,13 +49,16 @@ final class FramesModel {
         downloadStates[frame.frameId] ?? .idle
     }
 
-    /// Downloads `frame` to the user's Downloads folder, then — since the server doesn't expose a
-    /// real checksum for a frame anywhere yet (`frame_store`'s schema has no hash column; see
-    /// IMCPKIT-23) — verifies what's actually available: the downloaded file's size against the
-    /// server-reported `sizeBytes`. Only calls `confirmFrameTransfer` if that matches; a mismatch
-    /// is left as `.downloadedNotConfirmed` rather than silently confirmed, since a truncated or
-    /// corrupted transfer is exactly the thing `confirmFrameTransfer`'s own doc comment warns
-    /// against confirming.
+    /// Downloads `frame` to the user's Downloads folder, then verifies the downloaded file's
+    /// actual content before ever confirming the transfer: a real SHA-256 comparison via
+    /// `verifyChecksum(ofFileAt:)` for a frame that has one (every frame captured since
+    /// INDIMCP-95), falling back to a size comparison against `sizeBytes` only for a legacy frame
+    /// that predates checksum support (`checksumSha256 == nil`) — a size match alone can't catch
+    /// a same-length-but-corrupted transfer the way a hash comparison can. Only calls
+    /// `confirmFrameTransfer` once verification passes; a failure is left as
+    /// `.downloadedNotConfirmed` rather than silently confirmed, since a truncated or corrupted
+    /// transfer is exactly the thing `confirmFrameTransfer`'s own doc comment warns against
+    /// confirming.
     ///
     /// See `FrameMetadataResponse.suggestedLocalFilename` for the local filename this uses and
     /// why it's a guess rather than a fact recovered from the server.
@@ -79,14 +83,36 @@ final class FramesModel {
             return
         }
 
-        let actualSize = (try? destination.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
-        guard actualSize == frame.sizeBytes else {
-            let actualDescription = actualSize.map(String.init) ?? "unknown"
+        let verification: ChecksumVerification
+        do {
+            verification = try frame.verifyChecksum(ofFileAt: destination)
+        } catch {
             downloadStates[frame.frameId] = .downloadedNotConfirmed(
                 destination: destination,
-                reason: "Size mismatch: server reported \(frame.sizeBytes) bytes, downloaded file is \(actualDescription)."
+                reason: "Downloaded, but verifying the file's checksum failed: \(String(describing: error))"
             )
             return
+        }
+
+        switch verification {
+        case .mismatched(let expected, let actual):
+            downloadStates[frame.frameId] = .downloadedNotConfirmed(
+                destination: destination,
+                reason: "Checksum mismatch: server reported \(expected), downloaded file hashes to \(actual)."
+            )
+            return
+        case .matched:
+            break
+        case .noChecksumAvailable:
+            let actualSize = (try? destination.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
+            guard actualSize == frame.sizeBytes else {
+                let actualDescription = actualSize.map(String.init) ?? "unknown"
+                downloadStates[frame.frameId] = .downloadedNotConfirmed(
+                    destination: destination,
+                    reason: "Size mismatch: server reported \(frame.sizeBytes) bytes, downloaded file is \(actualDescription)."
+                )
+                return
+            }
         }
 
         do {
@@ -95,7 +121,7 @@ final class FramesModel {
         } catch {
             downloadStates[frame.frameId] = .downloadedNotConfirmed(
                 destination: destination,
-                reason: "Size verified, but confirming the transfer with the server failed: \(String(describing: error))"
+                reason: "Verified, but confirming the transfer with the server failed: \(String(describing: error))"
             )
         }
     }

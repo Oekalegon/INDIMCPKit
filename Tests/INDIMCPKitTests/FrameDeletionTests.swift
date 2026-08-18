@@ -10,6 +10,7 @@ import Testing
     let client = INDIMCPClient(endpoint: try #require(URL(string: "http://127.0.0.1:1")))
     let frame = FrameMetadataResponse(
         frameId: "f1", runId: nil, device: "CCD Simulator", sizeBytes: 1024,
+        checksumSha256: "deadbeef",
         capturedAt: "2026-01-01T00:00:00+00:00", transferredAt: nil, downloadUrl: nil
     )
     let destination = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString)
