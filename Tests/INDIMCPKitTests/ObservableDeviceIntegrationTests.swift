@@ -75,6 +75,12 @@ struct ObservableDeviceIntegrationTests {
     /// `start()` calls exercise the identical stop-then-start sequence as an explicit `stop()`
     /// followed by `start()`.
     ///
+    /// Runs against a real `indiserver`/messaging connection, matching `startResolvesDeviceName`'s
+    /// setup, so the `resources/subscribe`/`resources/unsubscribe` round trips each cycle relies on
+    /// exercise the same conditions the original bug was found under ("confirmed live against a
+    /// real rig" — see `3f3ca2d`'s commit message) rather than an untested assumption that those
+    /// calls behave the same with nothing behind them.
+    ///
     /// This dev environment has no real INDI driver catalog (see `DeviceAbstractionsIntegrationTests`'
     /// doc comment), so — same limitation `ObservableMessageStreamIntegrationTests`' own doc
     /// comment notes for the analogous stream — there's no way to confirm the live subscription
@@ -89,6 +95,8 @@ struct ObservableDeviceIntegrationTests {
     func rapidStopStartCyclesDoNotHang() async throws {
         try await IndiServerTestLock.withLock {
             let client = try await connectedTestClient()
+            _ = try await client.startINDIServer()
+            _ = try await client.startINDIMessaging()
 
             let rig = Rig(
                 id: "indimcpkit-test-\(UUID().uuidString)",
@@ -108,6 +116,8 @@ struct ObservableDeviceIntegrationTests {
             #expect(await device.deviceName == "Not Connected Camera")
 
             await device.stop()
+            _ = try await client.stopINDIMessaging()
+            _ = try await client.stopINDIServer()
             await client.disconnect()
         }
     }
@@ -130,6 +140,16 @@ struct ObservableDeviceIntegrationTests {
     /// `ObservableMessageStreamIntegrationTests`' own doc comment on why those show up unscoped.
     /// That's enough to actually trigger the handler this regression is about, which a
     /// device-scoped subscription with no driver behind it never would.
+    ///
+    /// `messageEvents` yields once immediately on a successful `subscribeToResource` — the
+    /// *initial* confirmation read — independently of `onNotification` ever firing at all; only a
+    /// *second* (or later) yield can only have come from the notification-triggered re-read this
+    /// regression is actually about (see `INDIMCPClient.subscribeToResourceUpdates`: the initial
+    /// read runs directly in `task`'s own body, never from inside the notification handler).
+    /// Waiting for the counter to reach 2 — with the first increment awaited *before*
+    /// `startINDIServer`/`startINDIMessaging` even run, so it can only be that initial read — is
+    /// what actually proves a notification-triggered read happened, rather than mistaking the
+    /// harmless initial confirmation for one.
     @Test(
         "a fired live-subscription notification doesn't block a later, unrelated tool call",
         .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
@@ -138,27 +158,45 @@ struct ObservableDeviceIntegrationTests {
         try await IndiServerTestLock.withLock {
             let client = try await connectedTestClient()
 
-            let receivedWindow = ReceivedWindowFlag()
+            let receivedWindows = ReceivedWindowCounter()
             let subscriptionTask = Task {
                 for try await _ in client.messageEvents() {
-                    await receivedWindow.markReceived()
+                    await receivedWindows.increment()
                 }
             }
-            defer { subscriptionTask.cancel() }
 
-            _ = try await client.startINDIServer()
-            _ = try await client.startINDIMessaging()
-
-            var sawNotification = false
+            // Wait for the initial subscribe confirmation before triggering real server activity,
+            // so the next increment observed below can only be notification-triggered.
+            var sawInitialWindow = false
             for _ in 0..<50 {
-                if await receivedWindow.received {
-                    sawNotification = true
+                if await receivedWindows.count >= 1 {
+                    sawInitialWindow = true
                     break
                 }
                 try await Task.sleep(for: .milliseconds(200))
             }
-            guard sawNotification else {
+            guard sawInitialWindow else {
+                Issue.record("No initial subscribe confirmation observed")
+                subscriptionTask.cancel()
+                await client.disconnect()
+                return
+            }
+
+            _ = try await client.startINDIServer()
+            _ = try await client.startINDIMessaging()
+
+            var sawNotificationTriggeredRead = false
+            for _ in 0..<50 {
+                if await receivedWindows.count >= 2 {
+                    sawNotificationTriggeredRead = true
+                    break
+                }
+                try await Task.sleep(for: .milliseconds(200))
+            }
+            guard sawNotificationTriggeredRead else {
                 Issue.record("No live notification observed after starting indiserver/messaging")
+                subscriptionTask.cancel()
+                _ = try await client.stopINDIMessaging()
                 _ = try await client.stopINDIServer()
                 await client.disconnect()
                 return
@@ -183,6 +221,7 @@ struct ObservableDeviceIntegrationTests {
             }
             #expect(completedInTime)
 
+            subscriptionTask.cancel()
             _ = try await client.stopINDIMessaging()
             _ = try await client.stopINDIServer()
             await client.disconnect()
@@ -190,10 +229,13 @@ struct ObservableDeviceIntegrationTests {
     }
 }
 
-/// Records whether at least one window has been received from a live subscription — a plain
-/// actor rather than `@MainActor` state, since the subscription-consuming `Task` in
-/// `liveNotificationDoesNotDeadlockLaterCalls` isn't itself main-actor-isolated.
-private actor ReceivedWindowFlag {
-    private(set) var received = false
-    func markReceived() { received = true }
+/// Counts how many windows have been received from a live subscription — a plain actor rather
+/// than `@MainActor` state, since the subscription-consuming `Task` in
+/// `liveNotificationDoesNotDeadlockLaterCalls` isn't itself main-actor-isolated. Distinguishing a
+/// count of 1 (the subscription's own initial confirmation read) from 2+ (at least one
+/// notification-triggered re-read on top of that) is what lets that test tell "the harmless
+/// initial read happened" apart from "the code path this regression is actually about ran."
+private actor ReceivedWindowCounter {
+    private(set) var count = 0
+    func increment() { count += 1 }
 }
