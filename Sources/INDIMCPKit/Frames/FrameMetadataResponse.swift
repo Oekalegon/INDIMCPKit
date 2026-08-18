@@ -1,11 +1,13 @@
 import Foundation
 
-/// `FrameMetadata` plus `downloadUrl` — what `listFrames`/`getFrameMetadata` actually return.
+/// `FrameMetadata` plus `downloadUrl`/`issues` — what `listFrames`/`getFrameMetadata` actually
+/// return.
 ///
 /// Mirrors INDIMCP-server's `FrameMetadataResponse` (`server.py`), which subclasses
 /// `FrameMetadata` as a Python `TypedDict` — its wire JSON is flat (every `FrameMetadata` field
-/// plus `downloadUrl` at the same level), so this is modeled as its own flat struct rather than
-/// nesting a `FrameMetadata` inside it, matching how a nested TypedDict would actually decode.
+/// plus `downloadUrl`/`issues` at the same level), so this is modeled as its own flat struct
+/// rather than nesting a `FrameMetadata` inside it, matching how a nested TypedDict would
+/// actually decode.
 ///
 /// `downloadUrl` is computed by the server per response from its own current transport/host/port,
 /// not stored — `nil` whenever the server has no HTTP listener to build one from (running under
@@ -24,6 +26,15 @@ public struct FrameMetadataResponse: Codable, Sendable, Hashable {
     public let capturedAt: String
     public let transferredAt: String?
     public let downloadUrl: String?
+    /// Conditions about this particular frame's metadata worth telling the caller about — always
+    /// an array, empty when there's nothing to report, never `nil`.
+    ///
+    /// Currently only ever contains a `frameChecksumMissing` `.warning` when `checksumSha256` is
+    /// `nil` (a frame that predates checksum support server-side), but modeled as the general
+    /// `[Issue]` shape the server itself uses rather than a single optional field, since the
+    /// server may add more `issues`-worthy conditions here later without changing this type's
+    /// shape.
+    public let issues: [Issue]
 
     public init(
         frameId: String,
@@ -33,7 +44,8 @@ public struct FrameMetadataResponse: Codable, Sendable, Hashable {
         checksumSha256: String?,
         capturedAt: String,
         transferredAt: String?,
-        downloadUrl: String?
+        downloadUrl: String?,
+        issues: [Issue]
     ) {
         self.frameId = frameId
         self.runId = runId
@@ -43,6 +55,7 @@ public struct FrameMetadataResponse: Codable, Sendable, Hashable {
         self.capturedAt = capturedAt
         self.transferredAt = transferredAt
         self.downloadUrl = downloadUrl
+        self.issues = issues
     }
 
     /// A reasonable local filename for this frame: `"<device>-<frameId>.fits"`, with any `/` in

@@ -55,6 +55,7 @@ private struct FrameRow: View {
                 Text("\(frame.frameId.prefix(8))… · \(formattedSize) · \(frame.capturedAt)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                issuesLabels
                 statusLabel
             }
 
@@ -64,6 +65,21 @@ private struct FrameRow: View {
                 .disabled(state == .downloading)
         }
         .padding(.vertical, 4)
+    }
+
+    /// Conditions the server itself reported about this frame's metadata — e.g. a
+    /// `frameChecksumMissing` warning for a frame that predates checksum support (INDIMCP-107).
+    /// Shown regardless of download state, since these are about the frame as captured, not
+    /// about this app's own download/confirm workflow — that's what `statusLabel` covers.
+    @ViewBuilder
+    private var issuesLabels: some View {
+        ForEach(Array(frame.issues.enumerated()), id: \.offset) { _, issue in
+            Label(issue.message, systemImage: issue.severity.testAppSymbolName)
+                .font(.caption)
+                .foregroundStyle(issue.severity.testAppTintColor)
+                .lineLimit(2)
+                .textSelection(.enabled)
+        }
     }
 
     @ViewBuilder

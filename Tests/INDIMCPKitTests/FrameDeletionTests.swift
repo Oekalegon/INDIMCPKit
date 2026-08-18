@@ -11,7 +11,7 @@ import Testing
     let frame = FrameMetadataResponse(
         frameId: "f1", runId: nil, device: "CCD Simulator", sizeBytes: 1024,
         checksumSha256: "deadbeef",
-        capturedAt: "2026-01-01T00:00:00+00:00", transferredAt: nil, downloadUrl: nil
+        capturedAt: "2026-01-01T00:00:00+00:00", transferredAt: nil, downloadUrl: nil, issues: []
     )
     let destination = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString)
 

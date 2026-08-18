@@ -39,6 +39,15 @@ frame captured since INDIMCP-95 always has one. A client can't tell the differen
 frame is old" and "something's wrong" from the field alone — treat `nil` as "no checksum to check
 against," not as an error.
 
+The server doesn't leave a caller to infer that on its own, either: `FrameMetadataResponse.issues`
+(INDIMCP-107) carries a matching `frameChecksumMissing` `.warning` `Issue` alongside a `nil`
+`checksumSha256`, explaining exactly why. `issues` is always an array — empty when there's nothing
+to report, never `nil` — reusing the same `Issue`/`Severity` shape already used for
+`ScriptRunError.warnings`/`ScriptRunCancelled.warnings` elsewhere in this kit, not a new ad hoc
+warning type. `INDIMCPKitTestApp`'s `FramesView` shows these per frame, independent of download
+state, since they're about the frame as captured — not about this app's own download/confirm
+workflow.
+
 ## Verifying a downloaded file
 
 `FrameMetadataResponse.verifyChecksum(ofFileAt:)` compares a local file's actual content against
