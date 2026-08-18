@@ -52,9 +52,13 @@ between the kit it was built against and the server it's talking to.
     disconnected client missed, since the live streams are best-effort/live-only.
   - **Frames** — `listFrames`/`getFrameMetadata`/`confirmFrameTransfer`/`deleteFrame`/
     `purgeTransferredFrames`/`deleteAllTransferredFrames`/`deleteAllFrames` manage captured-frame
-    metadata (frames are never purged automatically server-side, unlike the event log); `downloadFrame`
-    streams a frame's raw bytes straight to a local file via the server's `GET /frames/{frameId}`
-    route, never buffering the whole file in memory.
+    metadata (frames are never purged automatically server-side, unlike the event log);
+    `downloadFrame`/`downloadAllFrames` stream a frame's raw bytes straight to a local file via
+    the server's `GET /frames/{frameId}` route, never buffering the whole file in memory;
+    `FrameMetadataResponse.verifyChecksum(ofFileAt:)` streams a downloaded file back through
+    SHA-256 to confirm it matches the server-reported `checksumSha256` before ever calling
+    `confirmFrameTransfer` on it — falls back to a size comparison only for a frame captured
+    before checksum support existed server-side.
 - **INDIMCPKit test app** (macOS, SwiftUI) — one screen per device type showing its default tool connections in
   action (e.g. Mount: park/unpark/track/slew; Camera: cooling + single exposure), plus each device
   screen's live `ObservableDevice`-backed properties (name, state as a colored circle, every element)

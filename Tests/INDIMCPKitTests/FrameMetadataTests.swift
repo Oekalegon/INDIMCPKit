@@ -7,7 +7,7 @@ import Testing
     let json = Data(
         #"""
         {"frameId": "f1", "runId": "r1", "device": "CCD Simulator", "sizeBytes": 1048576,
-         "capturedAt": "2026-01-01T00:00:00+00:00", "transferredAt": null}
+         "checksumSha256": "abc123", "capturedAt": "2026-01-01T00:00:00+00:00", "transferredAt": null}
         """#.utf8
     )
     let metadata = try JSONDecoder().decode(FrameMetadata.self, from: json)
@@ -15,6 +15,7 @@ import Testing
     #expect(metadata.runId == "r1")
     #expect(metadata.device == "CCD Simulator")
     #expect(metadata.sizeBytes == 1_048_576)
+    #expect(metadata.checksumSha256 == "abc123")
     #expect(metadata.transferredAt == nil)
 }
 
@@ -22,7 +23,8 @@ import Testing
     let json = Data(
         #"""
         {"frameId": "f1", "runId": null, "device": "CCD Simulator", "sizeBytes": 1048576,
-         "capturedAt": "2026-01-01T00:00:00+00:00", "transferredAt": "2026-01-01T00:05:00+00:00"}
+         "checksumSha256": "abc123", "capturedAt": "2026-01-01T00:00:00+00:00",
+         "transferredAt": "2026-01-01T00:05:00+00:00"}
         """#.utf8
     )
     let metadata = try JSONDecoder().decode(FrameMetadata.self, from: json)
@@ -30,16 +32,31 @@ import Testing
     #expect(metadata.transferredAt == "2026-01-01T00:05:00+00:00")
 }
 
+@Test func decodesFrameMetadataWithNoChecksum() throws {
+    // A frame captured before checksum support existed (INDIMCP-95) reports
+    // checksumSha256: null — its row predates the column and was carried forward by a schema
+    // migration with nothing left to hash.
+    let json = Data(
+        #"""
+        {"frameId": "f1", "runId": null, "device": "CCD Simulator", "sizeBytes": 1048576,
+         "checksumSha256": null, "capturedAt": "2026-01-01T00:00:00+00:00", "transferredAt": null}
+        """#.utf8
+    )
+    let metadata = try JSONDecoder().decode(FrameMetadata.self, from: json)
+    #expect(metadata.checksumSha256 == nil)
+}
+
 @Test func decodesFrameMetadataResponseWithDownloadUrl() throws {
     let json = Data(
         #"""
         {"frameId": "f1", "runId": "r1", "device": "CCD Simulator", "sizeBytes": 1048576,
-         "capturedAt": "2026-01-01T00:00:00+00:00", "transferredAt": null,
+         "checksumSha256": "abc123", "capturedAt": "2026-01-01T00:00:00+00:00", "transferredAt": null,
          "downloadUrl": "http://telescope.local:8000/frames/f1"}
         """#.utf8
     )
     let response = try JSONDecoder().decode(FrameMetadataResponse.self, from: json)
     #expect(response.downloadUrl == "http://telescope.local:8000/frames/f1")
+    #expect(response.checksumSha256 == "abc123")
 }
 
 @Test func decodesFrameMetadataResponseWithNoDownloadUrl() throws {
@@ -49,7 +66,8 @@ import Testing
     let json = Data(
         #"""
         {"frameId": "f1", "runId": null, "device": "CCD Simulator", "sizeBytes": 1048576,
-         "capturedAt": "2026-01-01T00:00:00+00:00", "transferredAt": null, "downloadUrl": null}
+         "checksumSha256": "abc123", "capturedAt": "2026-01-01T00:00:00+00:00", "transferredAt": null,
+         "downloadUrl": null}
         """#.utf8
     )
     let response = try JSONDecoder().decode(FrameMetadataResponse.self, from: json)

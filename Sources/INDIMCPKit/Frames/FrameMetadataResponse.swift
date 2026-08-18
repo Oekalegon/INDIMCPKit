@@ -16,6 +16,11 @@ public struct FrameMetadataResponse: Codable, Sendable, Hashable {
     public let runId: String?
     public let device: String
     public let sizeBytes: Int
+    /// The frame file's SHA-256 checksum, as a lowercase hex string. `nil` only for a frame
+    /// captured before checksum support existed server-side — see `FrameMetadata.checksumSha256`,
+    /// whose doc comment this mirrors exactly. Compare a downloaded file against this with
+    /// `verifyChecksum(ofFileAt:)`.
+    public let checksumSha256: String?
     public let capturedAt: String
     public let transferredAt: String?
     public let downloadUrl: String?
@@ -25,6 +30,7 @@ public struct FrameMetadataResponse: Codable, Sendable, Hashable {
         runId: String?,
         device: String,
         sizeBytes: Int,
+        checksumSha256: String?,
         capturedAt: String,
         transferredAt: String?,
         downloadUrl: String?
@@ -33,6 +39,7 @@ public struct FrameMetadataResponse: Codable, Sendable, Hashable {
         self.runId = runId
         self.device = device
         self.sizeBytes = sizeBytes
+        self.checksumSha256 = checksumSha256
         self.capturedAt = capturedAt
         self.transferredAt = transferredAt
         self.downloadUrl = downloadUrl
