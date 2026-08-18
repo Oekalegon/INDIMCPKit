@@ -29,6 +29,11 @@ extension INDIMCPClient {
         biasExposureSeconds: Double = 0,
         locationId: String? = nil
     ) async throws -> SensorCalibrationSweepStarted {
+        // Argument keys mirror INDIMCP-server's run_sensor_calibration_sweep parameter names
+        // exactly, including its inconsistent snake_case/camelCase mix (rig_id/location_id vs.
+        // gains/offsets/flatExposureSecondsList/biasCount/darkCount/biasExposureSeconds) — not a
+        // typo, don't "fix" the casing to match this file's other calls or the server won't
+        // recognize the argument.
         var arguments: [String: Value] = [
             "rig_id": .string(rigId),
             "gains": .array(gains.map { .double($0) }),
