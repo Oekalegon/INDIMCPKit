@@ -19,6 +19,25 @@ extension INDIMCPClient {
     /// `cancelSensorCalibrationSweep` to stop it early. Does not stage a flat panel or capture
     /// flats itself — this is the bias/flat-dark half of a calibration set only; the flat side is
     /// a separate sweep (IMCPKIT-33).
+    ///
+    /// - Parameters:
+    ///   - rigId: The rig to run the sweep against.
+    ///   - gains: Camera gain settings to sweep — outermost in the combination order, must be
+    ///     non-empty.
+    ///   - offsets: Camera offset settings to sweep — second in the combination order, must be
+    ///     non-empty.
+    ///   - flatExposureSecondsList: Flat-dark exposure lengths (seconds) to sweep — innermost in
+    ///     the combination order, must be non-empty.
+    ///   - biasCount: Bias frames captured per combination.
+    ///   - darkCount: Flat-dark frames captured per combination.
+    ///   - biasExposureSeconds: Bias frame exposure length (seconds), shared across every
+    ///     combination. Defaults to `0`, the shortest exposure the camera supports.
+    ///   - locationId: A saved `Observatory` this sweep's captures should use, if any — same
+    ///     best-effort semantics as `runScript`'s `locationId`.
+    /// - Returns: An acknowledgment carrying the new `sweepId` and total combination count.
+    /// - Throws: `INDIMCPClientError.toolCallFailed` if `gains`, `offsets`, or
+    ///   `flatExposureSecondsList` is empty, or if `rigId`/`locationId` doesn't resolve on the
+    ///   server.
     public func runSensorCalibrationSweep(
         rigId: String,
         gains: [Double],
@@ -55,6 +74,12 @@ extension INDIMCPClient {
 
     /// Returns the most recently known status for a sweep started by
     /// `runSensorCalibrationSweep`.
+    ///
+    /// - Parameter sweepId: The sweep to query, as returned by `runSensorCalibrationSweep`.
+    /// - Returns: The most recent `SensorCalibrationSweepStatus` recorded for `sweepId` —
+    ///   `.started`/`.progress` if still running, or a terminal case once finished.
+    /// - Throws: `INDIMCPClientError.toolCallFailed` if `sweepId` is unknown to the server (never
+    ///   started, or evicted after enough other sweeps finished since).
     public func getSensorCalibrationSweepStatus(sweepId: String) async throws -> SensorCalibrationSweepStatus {
         try await callToolUnion(
             "get_sensor_calibration_sweep_status",
@@ -69,6 +94,15 @@ extension INDIMCPClient {
     /// letting it finish before stopping the sweep — same "can block for as long as the current
     /// step takes" caveat as `cancelScript`, since that's exactly what this does under the hood
     /// for the in-flight combination.
+    ///
+    /// - Warning: Can block until the in-flight combination's current capture step finishes —
+    ///   INDIMCP-server only checks for cancellation between steps, not preemptively mid-step.
+    ///   Callers needing a bounded wait should race this against their own timeout.
+    /// - Parameter sweepId: The sweep to cancel, as returned by `runSensorCalibrationSweep`.
+    /// - Returns: The sweep's resulting terminal status — `.cancelled` if this call actually
+    ///   stopped it, or whatever terminal status it had already reached on its own (finished or
+    ///   failed) if cancellation lost that race.
+    /// - Throws: `INDIMCPClientError.toolCallFailed` if `sweepId` is unknown to the server.
     public func cancelSensorCalibrationSweep(sweepId: String) async throws -> SensorCalibrationSweepStatus {
         try await callToolUnion(
             "cancel_sensor_calibration_sweep",
@@ -85,6 +119,17 @@ extension INDIMCPClient {
     /// `waitForTerminalStatus(runId:)` for individual script runs — callers that need to observe
     /// intermediate progress (e.g. to show which combination is currently capturing) should poll
     /// `getSensorCalibrationSweepStatus` themselves instead.
+    ///
+    /// - Parameters:
+    ///   - sweepId: The sweep to poll, as returned by `runSensorCalibrationSweep`.
+    ///   - pollInterval: Delay between polls. Defaults to 500ms.
+    ///   - maxAttempts: Maximum number of polls before giving up. Defaults to 120 (one minute at
+    ///     the default `pollInterval`) — raise this for a sweep with many combinations, since each
+    ///     one is a real capture sequence that can take far longer than a single script step.
+    /// - Returns: The sweep's terminal `SensorCalibrationSweepStatus`.
+    /// - Throws: `INDIMCPClientError.pollingTimedOut` if `maxAttempts` polls pass without the
+    ///   sweep reaching a terminal status, or whatever `getSensorCalibrationSweepStatus` itself
+    ///   throws (e.g. `toolCallFailed` for an unknown `sweepId`).
     public func waitForTerminalSweepStatus(
         sweepId: String,
         pollInterval: Duration = .milliseconds(500),

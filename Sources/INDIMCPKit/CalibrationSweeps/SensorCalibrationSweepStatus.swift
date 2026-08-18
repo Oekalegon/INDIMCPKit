@@ -6,10 +6,15 @@
 /// `Union` of five TypedDicts discriminated by their own `kind` field — same shape and same
 /// reason for a hand-written `Codable` conformance as `ScriptRunStatus`.
 public enum SensorCalibrationSweepStatus: Sendable, Hashable {
+    /// The sweep has just started; no combination has finished yet.
     case started(SensorCalibrationSweepStarted)
+    /// The sweep is in progress; some combinations may have finished already.
     case progress(SensorCalibrationSweepProgress)
+    /// The sweep ran every combination to a successful completion.
     case completed(SensorCalibrationSweepCompleted)
+    /// The sweep stopped because one combination's run didn't complete successfully.
     case failed(SensorCalibrationSweepFailed)
+    /// The sweep was stopped early via `cancelSensorCalibrationSweep`.
     case cancelled(SensorCalibrationSweepCancelled)
 
     /// Whether this status is a final outcome for the sweep — no further
