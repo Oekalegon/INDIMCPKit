@@ -3,7 +3,8 @@ import Testing
 
 @testable import INDIMCPKit
 
-/// Exercises `getEvents` (durable event-log catch-up) and `messageEvents`/`scriptEvents` (live
+/// Exercises `getEvents` (durable event-log catch-up) and `messageEvents`/`scriptEvents`/
+/// `connectionEvents` (live
 /// `resources/subscribe`-backed streams) against a real, running INDIMCP-server.
 ///
 /// Skipped unless `INDIMCP_TEST_SERVER_URL` is set — see `INDIServerManagementIntegrationTests`
@@ -118,6 +119,70 @@ struct INDIEventStreamsIntegrationTests {
             }
 
             #expect(sawRunEvent)
+
+            _ = try await client.stopINDIServer()
+            await client.disconnect()
+        }
+    }
+
+    @Test(
+        "getEvents catches up on indiserver's connectionMade event, filtered by target",
+        .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
+    )
+    func getEventsCatchesUpOnConnectionEvent() async throws {
+        try await IndiServerTestLock.withLock {
+            let client = try await connectedTestClient()
+
+            // startINDIServer publishes a connectionMade event for target "indiserver" once the
+            // process is confirmed running (INDIMCP-57) — see indi_server.py's own
+            // _connection_event helper.
+            _ = try await client.startINDIServer()
+
+            let records = try await client.getEvents(stream: .connection, target: "indiserver")
+            #expect(!records.isEmpty)
+            #expect(records.allSatisfy { $0.stream == .connection && $0.target == "indiserver" })
+
+            let sawConnectionMade = try records.contains {
+                try $0.decodedConnectionEvent().kind == .connectionMade
+            }
+            #expect(sawConnectionMade)
+
+            _ = try await client.stopINDIServer()
+            await client.disconnect()
+        }
+    }
+
+    @Test(
+        "connectionEvents yields indiserver's connectionMade event, scoped to that target",
+        .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
+    )
+    func connectionEventsStreamsLiveUpdates() async throws {
+        try await IndiServerTestLock.withLock {
+            let client = try await connectedTestClient()
+
+            let sawConnectionMade = try await withThrowingTaskGroup(of: Bool.self) { group in
+                group.addTask {
+                    for try await events in client.connectionEvents(target: "indiserver") {
+                        if events.contains(where: { $0.kind == .connectionMade }) {
+                            return true
+                        }
+                    }
+                    return false
+                }
+                group.addTask {
+                    // Give the subscription above a moment to actually register before
+                    // publishing the event it's waiting for.
+                    try await Task.sleep(for: .milliseconds(200))
+                    _ = try await client.startINDIServer()
+                    try await Task.sleep(for: .seconds(10))
+                    return false
+                }
+                let result = try await group.next() ?? false
+                group.cancelAll()
+                return result
+            }
+
+            #expect(sawConnectionMade)
 
             _ = try await client.stopINDIServer()
             await client.disconnect()

@@ -46,10 +46,13 @@ between the kit it was built against and the server it's talking to.
     `Camera`, `FilterWheel`, `Focuser`) that keeps its `properties` live in memory: a full
     `getDeviceProperties` snapshot on `start()` and periodically thereafter (a safety net, since
     the live stream below is best-effort), corrected in between by `messageEvents`.
-  - **Event streams** — `messageEvents`/`scriptEvents` subscribe to the server's live
-    `indi://messages`/`indi://scripts` resources (an `AsyncThrowingStream` per stream, scoped to a
-    device/run if wanted); `getEvents` queries the durable event log to catch up on what a
-    disconnected client missed, since the live streams are best-effort/live-only.
+  - **Event streams** — `messageEvents`/`scriptEvents`/`connectionEvents` subscribe to the
+    server's live `indi://messages`/`indi://mcp-server/scripts`/`indi://mcp-server/connection`
+    resources (an `AsyncThrowingStream` per stream, scoped to a device/run/target if wanted);
+    `connectionEvents` covers `connectionMade`/`connectionLost` for this server's own link to
+    `indiserver`, the `indiserver` process, and individual driver processes. `getEvents` queries
+    the durable event log to catch up on what a disconnected client missed, since the live
+    streams are best-effort/live-only.
   - **Frames** — `listFrames`/`getFrameMetadata`/`confirmFrameTransfer`/`deleteFrame`/
     `purgeTransferredFrames`/`deleteAllTransferredFrames`/`deleteAllFrames` manage captured-frame
     metadata (frames are never purged automatically server-side, unlike the event log);

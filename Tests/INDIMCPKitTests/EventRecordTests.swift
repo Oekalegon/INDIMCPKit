@@ -6,7 +6,7 @@ import Testing
 @Test func decodesEventRecordFromServerJSONShape() throws {
     let json = Data(
         #"""
-        {"id": 42, "stream": "scripts", "device": null, "runId": "r1",
+        {"id": 42, "stream": "scripts", "device": null, "runId": "r1", "target": null,
          "occurredAt": "2026-01-01T00:00:00.000000+00:00",
          "payload": {"kind": "scriptStarted", "runId": "r1", "script": "park", "rigId": "rig1",
                      "startedAt": "2026-01-01T00:00:00+00:00", "pausable": false}}
@@ -17,6 +17,7 @@ import Testing
     #expect(record.stream == .scripts)
     #expect(record.device == nil)
     #expect(record.runId == "r1")
+    #expect(record.target == nil)
 
     let status = try record.decodedScriptStatus()
     guard case .started(let started) = status else {
@@ -29,7 +30,7 @@ import Testing
 @Test func decodesMessageEventRecordPayload() throws {
     let json = Data(
         #"""
-        {"id": 1, "stream": "messages", "device": "CCD Simulator", "runId": null,
+        {"id": 1, "stream": "messages", "device": "CCD Simulator", "runId": null, "target": null,
          "occurredAt": "2026-01-01T00:00:00.000000+00:00",
          "payload": {"kind": "propertyUpdate", "type": "switch", "device": "CCD Simulator",
                      "name": "CCD_COOLER", "state": "Ok", "elements": {"COOLER_ON": "On"},
@@ -45,11 +46,55 @@ import Testing
     #expect(event.elements?["COOLER_ON"] == "On")
 }
 
+@Test func decodesConnectionEventRecordPayload() throws {
+    let json = Data(
+        #"""
+        {"id": 3, "stream": "connection", "device": null, "runId": null, "target": "indiserver",
+         "occurredAt": "2026-01-01T00:00:00.000000+00:00",
+         "payload": {"kind": "connectionMade", "target": "indiserver", "message": null,
+                     "timestamp": "2026-01-01T00:00:00+00:00"}}
+        """#.utf8
+    )
+    let record = try JSONDecoder().decode(EventRecord.self, from: json)
+    #expect(record.stream == .connection)
+    #expect(record.target == "indiserver")
+
+    let event = try record.decodedConnectionEvent()
+    #expect(event.kind == .connectionMade)
+    #expect(event.target == "indiserver")
+    #expect(event.message == nil)
+}
+
+@Test func decodesEventRecordWithNoTargetKeyAtAll() throws {
+    // A server instance that hasn't been redeployed past INDIMCP-57 yet sends a response with
+    // no "target" key at all, not an explicit null — target being Optional means the
+    // synthesized decode already tolerates that (decodeIfPresent), same as every other
+    // Optional field here; this just documents and locks in that behavior.
+    let json = Data(
+        #"""
+        {"id": 1, "stream": "messages", "device": "CCD Simulator", "runId": null,
+         "occurredAt": "2026-01-01T00:00:00.000000+00:00",
+         "payload": {"kind": "propertyUpdate", "type": "switch", "device": "CCD Simulator",
+                     "name": "CCD_COOLER", "state": "Ok", "elements": {}, "timestamp": "t"}}
+        """#.utf8
+    )
+    let record = try JSONDecoder().decode(EventRecord.self, from: json)
+    #expect(record.target == nil)
+}
+
 @Test func eventStreamRoundTripsThroughEncoding() throws {
-    for stream in [EventStream.messages, .scripts] {
+    for stream in [EventStream.messages, .scripts, .connection] {
         let data = try JSONEncoder().encode(stream)
         let decoded = try JSONDecoder().decode(EventStream.self, from: data)
         #expect(decoded == stream)
+    }
+}
+
+@Test func connectionEventKindRoundTripsThroughEncoding() throws {
+    for kind in [ConnectionEventKind.connectionMade, .connectionLost] {
+        let data = try JSONEncoder().encode(kind)
+        let decoded = try JSONDecoder().decode(ConnectionEventKind.self, from: data)
+        #expect(decoded == kind)
     }
 }
 
@@ -70,6 +115,13 @@ import Testing
 }
 
 @Test func scriptsURIPercentEncodesRunId() {
-    #expect(INDIMCPClient.scriptsURI(runId: nil) == "indi://scripts")
-    #expect(INDIMCPClient.scriptsURI(runId: "run 1") == "indi://scripts/run%201")
+    // Renamed server-side from the top-level indi://scripts by INDIMCP-57.
+    #expect(INDIMCPClient.scriptsURI(runId: nil) == "indi://mcp-server/scripts")
+    #expect(INDIMCPClient.scriptsURI(runId: "run 1") == "indi://mcp-server/scripts/run%201")
+}
+
+@Test func connectionURIPercentEncodesTarget() {
+    #expect(INDIMCPClient.connectionURI(target: nil) == "indi://mcp-server/connection")
+    #expect(INDIMCPClient.connectionURI(target: "indiserver") == "indi://mcp-server/connection/indiserver")
+    #expect(INDIMCPClient.connectionURI(target: "CCD Simulator") == "indi://mcp-server/connection/CCD%20Simulator")
 }

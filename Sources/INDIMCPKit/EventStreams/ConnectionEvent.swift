@@ -1,0 +1,27 @@
+/// One connection-lifecycle event, in the same `kind`-tagged envelope convention as
+/// `IndiEvent`/`ScriptRunStatus` — published to `indi://mcp-server/connection` and durably
+/// logged under `EventStream.connection` (INDIMCP-57).
+///
+/// Mirrors INDIMCP-server's `ConnectionEvent` (`event_streams.py`). Covers three kinds of
+/// connection, all sharing this same shape: this server's own TCP link to `indiserver`
+/// (`target == "server"`, sourced from `indipyclient`'s local `ConnectionMade`/`ConnectionLost`
+/// events), the `indiserver` process itself (`target == "indiserver"`), and individual driver
+/// processes (`target` is that driver's catalog label). `target` is modeled as a plain `String`
+/// rather than a closed enum — like `EventRecord.device`/`runId`, `"server"`/`"indiserver"` are
+/// just the two well-known values; an individual driver's label is open-ended.
+public struct ConnectionEvent: Codable, Sendable, Hashable {
+    public let kind: ConnectionEventKind
+    public let target: String
+    /// Human-readable detail about this connection change, if the server has any to give —
+    /// `nil` isn't unusual, not a sign anything's missing.
+    public let message: String?
+    /// When this connection change happened, as an ISO 8601 timestamp string.
+    public let timestamp: String
+
+    public init(kind: ConnectionEventKind, target: String, message: String?, timestamp: String) {
+        self.kind = kind
+        self.target = target
+        self.message = message
+        self.timestamp = timestamp
+    }
+}
