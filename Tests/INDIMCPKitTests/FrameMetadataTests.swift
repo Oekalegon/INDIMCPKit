@@ -95,3 +95,19 @@ import Testing
     #expect(response.issues[0].severity == .warning)
     #expect(response.issues[0].device == "CCD Simulator")
 }
+
+@Test func decodesFrameMetadataResponseWithNoIssuesKeyAtAll() throws {
+    // A server instance that hasn't been redeployed past INDIMCP-107 yet sends a response with
+    // no "issues" key at all, not an empty array — this must default to [] rather than throwing
+    // keyNotFound, the same tolerance checksumSha256 already has for a server predating
+    // INDIMCP-95 (see FrameMetadataResponse.init(from:)'s own doc comment for why).
+    let json = Data(
+        #"""
+        {"frameId": "f1", "runId": null, "device": "CCD Simulator", "sizeBytes": 1048576,
+         "checksumSha256": "abc123", "capturedAt": "2026-01-01T00:00:00+00:00", "transferredAt": null,
+         "downloadUrl": null}
+        """#.utf8
+    )
+    let response = try JSONDecoder().decode(FrameMetadataResponse.self, from: json)
+    #expect(response.issues.isEmpty)
+}
