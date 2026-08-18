@@ -1,3 +1,5 @@
+import Foundation
+
 /// `FrameMetadata` plus `downloadUrl` — what `listFrames`/`getFrameMetadata` actually return.
 ///
 /// Mirrors INDIMCP-server's `FrameMetadataResponse` (`server.py`), which subclasses
@@ -34,5 +36,19 @@ public struct FrameMetadataResponse: Codable, Sendable, Hashable {
         self.capturedAt = capturedAt
         self.transferredAt = transferredAt
         self.downloadUrl = downloadUrl
+    }
+
+    /// A reasonable local filename for this frame: `"<device>-<frameId>.fits"`, with any `/` in
+    /// `device` replaced by `-` so it can't be misread as a path separator.
+    ///
+    /// The server never tells a client a frame's original on-disk filename or extension
+    /// (deliberately — see `FrameMetadata`'s doc comment), so `.fits` here is a guess, not a fact
+    /// recovered from the server; it matches every built-in capture script's own convention. This
+    /// is the single owner of that naming scheme — `downloadAllFrames` and
+    /// `INDIMCPKitTestApp`'s `FramesModel` both use it, so a frame downloaded through either path
+    /// lands under the same name.
+    public var suggestedLocalFilename: String {
+        let sanitizedDevice = device.replacingOccurrences(of: "/", with: "-")
+        return "\(sanitizedDevice)-\(frameId).fits"
     }
 }

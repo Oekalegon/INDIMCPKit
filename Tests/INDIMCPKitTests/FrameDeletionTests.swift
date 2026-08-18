@@ -19,6 +19,20 @@ import Testing
     }
 }
 
+@Test func downloadAllFramesCreatesNoDirectoryWhenListFramesFails() async throws {
+    // No real server reachable at this endpoint, so listFrames(runId:) fails before
+    // downloadAllFrames ever gets to creating a directory or downloading anything — proves the
+    // directory-creation side effect only happens once listFrames has actually succeeded.
+    let client = INDIMCPClient(endpoint: try #require(URL(string: "http://127.0.0.1:1")))
+    let directory = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString)
+
+    await #expect(throws: (any Error).self) {
+        _ = try await client.downloadAllFrames(runId: "run-1", to: directory)
+    }
+
+    #expect(!FileManager.default.fileExists(atPath: directory.path))
+}
+
 @Test func deleteAllFramesRefusesWithoutAcknowledgment() async throws {
     // No real server reachable at this endpoint — if this reached the network at all (i.e. the
     // acknowledgment guard didn't fire first), it would fail with a connection error instead of

@@ -78,4 +78,24 @@ struct INDIFramesIntegrationTests {
         _ = try await client.purgeTransferredFrames(olderThanDays: 3650)
         await client.disconnect()
     }
+
+    // Like `listFrames`/`purgeTransferredFrames` above, this dev environment can't produce a real
+    // frame (see this suite's doc comment), so this only covers the empty-run path: the
+    // `listFrames(runId:)` call round-trips and, since there's nothing to download, `directory`
+    // still gets created. Actually downloading a frame this way is covered by manual verification
+    // the same way `downloadFrame` itself is, until a real driver can produce one.
+    @Test(
+        "downloadAllFrames creates the directory and downloads nothing for a run with no frames",
+        .enabled(if: ProcessInfo.processInfo.environment["INDIMCP_TEST_SERVER_URL"] != nil)
+    )
+    func downloadAllFramesRoundTripsForEmptyRun() async throws {
+        let client = try await connectedTestClient()
+        let directory = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString)
+
+        let downloaded = try await client.downloadAllFrames(runId: "nonexistent-run", to: directory)
+
+        #expect(downloaded.isEmpty)
+        #expect(FileManager.default.fileExists(atPath: directory.path))
+        await client.disconnect()
+    }
 }

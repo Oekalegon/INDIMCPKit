@@ -29,6 +29,34 @@ extension INDIMCPClient {
         try await downloadFrame(metadata, to: destination)
     }
 
+    /// Downloads every captured frame belonging to `runId` into `directory`, one file per frame,
+    /// named per `FrameMetadataResponse.suggestedLocalFilename` — the same naming
+    /// `INDIMCPKitTestApp`'s `FramesModel` already uses when downloading a single frame by hand,
+    /// so a frame downloaded through this convenience lands under the same name a caller would
+    /// already expect if they'd downloaded it one at a time.
+    ///
+    /// Composes `listFrames(runId:)` with `downloadFrame(_:to:)` per frame — there's no single
+    /// server tool for "download this whole run". Creates `directory` (with any missing
+    /// intermediate directories) only once `listFrames` has succeeded, so a server/network
+    /// failure never leaves an empty directory behind as a side effect.
+    ///
+    /// Not atomic across frames, same as `deleteAllFrames`: if a `downloadFrame` call partway
+    /// through the list throws, this rethrows immediately — some frames may already be on disk
+    /// and others not. Call `listFrames(runId:)` again afterward, or check `directory`'s
+    /// contents, to see what's actually there rather than assuming all-or-nothing.
+    public func downloadAllFrames(runId: String, to directory: URL) async throws -> [FrameMetadataResponse] {
+        let frames = try await listFrames(runId: runId)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        var downloaded: [FrameMetadataResponse] = []
+        for frame in frames {
+            let destination = directory.appendingPathComponent(frame.suggestedLocalFilename)
+            try await downloadFrame(frame, to: destination)
+            downloaded.append(frame)
+        }
+        return downloaded
+    }
+
     private func download(from url: URL, to destination: URL, frameId: String) async throws {
         let (temporaryURL, response) = try await URLSession.shared.download(from: url)
         guard let httpResponse = response as? HTTPURLResponse, (200..<300).contains(httpResponse.statusCode) else {
