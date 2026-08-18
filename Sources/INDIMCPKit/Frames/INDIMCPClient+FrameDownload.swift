@@ -29,6 +29,37 @@ extension INDIMCPClient {
         try await downloadFrame(metadata, to: destination)
     }
 
+    /// Downloads every captured frame belonging to `runId` into `directory`, one file per frame,
+    /// named `"<device>-<frameId>.fits"` (slashes in `device` replaced with `-`) — the same
+    /// naming `INDIMCPKitTestApp`'s `FramesModel` already uses when downloading a single frame by
+    /// hand, so a frame downloaded through this convenience lands under the same name a caller
+    /// would already expect if they'd downloaded it one at a time. `.fits` is a guess (the server
+    /// never tells a client a frame's original filename or extension — see `FrameMetadata`'s doc
+    /// comment) but matches every built-in capture script's own convention, same rationale as
+    /// `FramesModel`.
+    ///
+    /// Composes `listFrames(runId:)` with `downloadFrame(_:to:)` per frame — there's no single
+    /// server tool for "download this whole run". Creates `directory` (with any missing
+    /// intermediate directories) first if it doesn't already exist.
+    ///
+    /// Not atomic across frames, same as `deleteAllFrames`: if a `downloadFrame` call partway
+    /// through the list throws, this rethrows immediately — some frames may already be on disk
+    /// and others not. Call `listFrames(runId:)` again afterward, or check `directory`'s
+    /// contents, to see what's actually there rather than assuming all-or-nothing.
+    public func downloadAllFrames(runId: String, to directory: URL) async throws -> [FrameMetadataResponse] {
+        let frames = try await listFrames(runId: runId)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        var downloaded: [FrameMetadataResponse] = []
+        for frame in frames {
+            let sanitizedDevice = frame.device.replacingOccurrences(of: "/", with: "-")
+            let destination = directory.appendingPathComponent("\(sanitizedDevice)-\(frame.frameId).fits")
+            try await downloadFrame(frame, to: destination)
+            downloaded.append(frame)
+        }
+        return downloaded
+    }
+
     private func download(from url: URL, to destination: URL, frameId: String) async throws {
         let (temporaryURL, response) = try await URLSession.shared.download(from: url)
         guard let httpResponse = response as? HTTPURLResponse, (200..<300).contains(httpResponse.statusCode) else {
