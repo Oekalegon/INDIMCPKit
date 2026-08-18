@@ -59,7 +59,10 @@ between the kit it was built against and the server it's talking to.
     SHA-256 to confirm it matches the server-reported `checksumSha256` before ever calling
     `confirmFrameTransfer` on it — falls back to a size comparison only for a frame captured
     before checksum support existed server-side (see
-    [docs/ChecksumVerification.md](docs/ChecksumVerification.md) for the full flow).
+    [docs/ChecksumVerification.md](docs/ChecksumVerification.md) for the full flow);
+    `FrameMetadataResponse.issues` (e.g. a `frameChecksumMissing` warning explaining exactly that
+    `nil`-checksum case) surfaces conditions the server wants a caller to know about for that
+    frame's metadata.
 - **INDIMCPKit test app** (macOS, SwiftUI) — one screen per device type showing its default tool connections in
   action (e.g. Mount: park/unpark/track/slew; Camera: cooling + single exposure), plus each device
   screen's live `ObservableDevice`-backed properties (name, state as a colored circle, every element)

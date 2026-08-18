@@ -11,7 +11,7 @@ private func makeFrame(checksumSha256: String?) -> FrameMetadataResponse {
     FrameMetadataResponse(
         frameId: "f1", runId: nil, device: "CCD Simulator", sizeBytes: 4,
         checksumSha256: checksumSha256,
-        capturedAt: "2026-01-01T00:00:00+00:00", transferredAt: nil, downloadUrl: nil
+        capturedAt: "2026-01-01T00:00:00+00:00", transferredAt: nil, downloadUrl: nil, issues: []
     )
 }
 

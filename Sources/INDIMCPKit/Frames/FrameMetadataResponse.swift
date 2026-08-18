@@ -1,11 +1,13 @@
 import Foundation
 
-/// `FrameMetadata` plus `downloadUrl` — what `listFrames`/`getFrameMetadata` actually return.
+/// `FrameMetadata` plus `downloadUrl`/`issues` — what `listFrames`/`getFrameMetadata` actually
+/// return.
 ///
 /// Mirrors INDIMCP-server's `FrameMetadataResponse` (`server.py`), which subclasses
 /// `FrameMetadata` as a Python `TypedDict` — its wire JSON is flat (every `FrameMetadata` field
-/// plus `downloadUrl` at the same level), so this is modeled as its own flat struct rather than
-/// nesting a `FrameMetadata` inside it, matching how a nested TypedDict would actually decode.
+/// plus `downloadUrl`/`issues` at the same level), so this is modeled as its own flat struct
+/// rather than nesting a `FrameMetadata` inside it, matching how a nested TypedDict would
+/// actually decode.
 ///
 /// `downloadUrl` is computed by the server per response from its own current transport/host/port,
 /// not stored — `nil` whenever the server has no HTTP listener to build one from (running under
@@ -24,7 +26,31 @@ public struct FrameMetadataResponse: Codable, Sendable, Hashable {
     public let capturedAt: String
     public let transferredAt: String?
     public let downloadUrl: String?
+    /// Conditions about this particular frame's metadata worth telling the caller about — always
+    /// an array, empty when there's nothing to report, never `nil`.
+    ///
+    /// Currently only ever contains a `frameChecksumMissing` `.warning` when `checksumSha256` is
+    /// `nil` (a frame that predates checksum support server-side), but modeled as the general
+    /// `[Issue]` shape the server itself uses rather than a single optional field, since the
+    /// server may add more `issues`-worthy conditions here later without changing this type's
+    /// shape.
+    public let issues: [Issue]
 
+    /// - Parameters:
+    ///   - frameId: The frame's unique, server-assigned identifier.
+    ///   - runId: The script run that captured this frame, if any — `nil` for an ad hoc
+    ///     `capture_frame` call not made through a script.
+    ///   - device: The camera device that captured this frame.
+    ///   - sizeBytes: The frame file's size in bytes, as last recorded server-side.
+    ///   - checksumSha256: The frame file's SHA-256 checksum, or `nil` for a frame that predates
+    ///     checksum support server-side.
+    ///   - capturedAt: When this frame was captured, as an ISO 8601 timestamp string.
+    ///   - transferredAt: When `confirmFrameTransfer` was called for this frame, or `nil` if it
+    ///     hasn't been yet.
+    ///   - downloadUrl: A `GET`-able URL for this frame's raw bytes, or `nil` if the server has
+    ///     no HTTP listener to build one from.
+    ///   - issues: Conditions about this frame's metadata worth telling the caller about; `[]`
+    ///     when there's nothing to report.
     public init(
         frameId: String,
         runId: String?,
@@ -33,7 +59,8 @@ public struct FrameMetadataResponse: Codable, Sendable, Hashable {
         checksumSha256: String?,
         capturedAt: String,
         transferredAt: String?,
-        downloadUrl: String?
+        downloadUrl: String?,
+        issues: [Issue]
     ) {
         self.frameId = frameId
         self.runId = runId
@@ -43,6 +70,37 @@ public struct FrameMetadataResponse: Codable, Sendable, Hashable {
         self.capturedAt = capturedAt
         self.transferredAt = transferredAt
         self.downloadUrl = downloadUrl
+        self.issues = issues
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case frameId, runId, device, sizeBytes, checksumSha256, capturedAt, transferredAt,
+            downloadUrl, issues
+    }
+
+    /// Decodes from the server's wire JSON, defaulting `issues` to `[]` when the key is absent
+    /// entirely — not just when it's explicitly `null`.
+    ///
+    /// `issues` (INDIMCP-107) was added to `FrameMetadataResponse` after `list_frames`/
+    /// `get_frame_metadata` already shipped, so a server instance that hasn't yet been
+    /// redeployed past that point (this kit's own version-alignment story allows for some
+    /// drift — see `alignedINDIMCPServerVersion`) sends a response with no `"issues"` key at
+    /// all, not an empty array. A plain synthesized `Codable` conformance would throw
+    /// `keyNotFound` for that response and break `listFrames`/`getFrameMetadata` outright
+    /// against any not-yet-upgraded server — the same reason `checksumSha256` is `String?`
+    /// rather than a required `String`. This custom decode gives `issues` the same tolerance
+    /// without giving up its non-`Optional` "always an array" public shape.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        frameId = try container.decode(String.self, forKey: .frameId)
+        runId = try container.decodeIfPresent(String.self, forKey: .runId)
+        device = try container.decode(String.self, forKey: .device)
+        sizeBytes = try container.decode(Int.self, forKey: .sizeBytes)
+        checksumSha256 = try container.decodeIfPresent(String.self, forKey: .checksumSha256)
+        capturedAt = try container.decode(String.self, forKey: .capturedAt)
+        transferredAt = try container.decodeIfPresent(String.self, forKey: .transferredAt)
+        downloadUrl = try container.decodeIfPresent(String.self, forKey: .downloadUrl)
+        issues = try container.decodeIfPresent([Issue].self, forKey: .issues) ?? []
     }
 
     /// A reasonable local filename for this frame: `"<device>-<frameId>.fits"`, with any `/` in
