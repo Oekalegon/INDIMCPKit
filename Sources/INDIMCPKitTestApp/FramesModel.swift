@@ -56,10 +56,8 @@ final class FramesModel {
     /// corrupted transfer is exactly the thing `confirmFrameTransfer`'s own doc comment warns
     /// against confirming.
     ///
-    /// The server never tells a client the frame's on-disk path or original filename via
-    /// `listFrames`/`getFrameMetadata` (deliberately — see `FrameMetadata`'s doc comment), so
-    /// there's no extension to recover here beyond guessing; `.fits` matches every built-in
-    /// capture script's own convention.
+    /// See `FrameMetadataResponse.suggestedLocalFilename` for the local filename this uses and
+    /// why it's a guess rather than a fact recovered from the server.
     func download(_ frame: FrameMetadataResponse) async {
         // Guarded and set synchronously (no await before this point), so a rapid double-tap on
         // the same row's Download button can't schedule two overlapping downloads for the same
@@ -72,8 +70,7 @@ final class FramesModel {
             downloadStates[frame.frameId] = .failed("No Downloads folder available.")
             return
         }
-        let sanitizedDevice = frame.device.replacingOccurrences(of: "/", with: "-")
-        let destination = downloadsDirectory.appendingPathComponent("\(sanitizedDevice)-\(frame.frameId).fits")
+        let destination = downloadsDirectory.appendingPathComponent(frame.suggestedLocalFilename)
 
         do {
             try await client.downloadFrame(frame, to: destination)

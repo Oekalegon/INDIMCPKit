@@ -30,17 +30,15 @@ extension INDIMCPClient {
     }
 
     /// Downloads every captured frame belonging to `runId` into `directory`, one file per frame,
-    /// named `"<device>-<frameId>.fits"` (slashes in `device` replaced with `-`) — the same
-    /// naming `INDIMCPKitTestApp`'s `FramesModel` already uses when downloading a single frame by
-    /// hand, so a frame downloaded through this convenience lands under the same name a caller
-    /// would already expect if they'd downloaded it one at a time. `.fits` is a guess (the server
-    /// never tells a client a frame's original filename or extension — see `FrameMetadata`'s doc
-    /// comment) but matches every built-in capture script's own convention, same rationale as
-    /// `FramesModel`.
+    /// named per `FrameMetadataResponse.suggestedLocalFilename` — the same naming
+    /// `INDIMCPKitTestApp`'s `FramesModel` already uses when downloading a single frame by hand,
+    /// so a frame downloaded through this convenience lands under the same name a caller would
+    /// already expect if they'd downloaded it one at a time.
     ///
     /// Composes `listFrames(runId:)` with `downloadFrame(_:to:)` per frame — there's no single
     /// server tool for "download this whole run". Creates `directory` (with any missing
-    /// intermediate directories) first if it doesn't already exist.
+    /// intermediate directories) only once `listFrames` has succeeded, so a server/network
+    /// failure never leaves an empty directory behind as a side effect.
     ///
     /// Not atomic across frames, same as `deleteAllFrames`: if a `downloadFrame` call partway
     /// through the list throws, this rethrows immediately — some frames may already be on disk
@@ -52,8 +50,7 @@ extension INDIMCPClient {
 
         var downloaded: [FrameMetadataResponse] = []
         for frame in frames {
-            let sanitizedDevice = frame.device.replacingOccurrences(of: "/", with: "-")
-            let destination = directory.appendingPathComponent("\(sanitizedDevice)-\(frame.frameId).fits")
+            let destination = directory.appendingPathComponent(frame.suggestedLocalFilename)
             try await downloadFrame(frame, to: destination)
             downloaded.append(frame)
         }
