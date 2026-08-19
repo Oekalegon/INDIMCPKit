@@ -12,13 +12,21 @@ import MCP
 /// you know which stream you asked for — see `IndiEvent`/`ScriptRunStatus`'s own `Codable`
 /// conformance, which both already expect exactly this `kind`-tagged shape.
 public struct EventRecord: Codable, Sendable, Hashable {
+    /// The durable event log's row id for this event, unique within the log.
     public let id: Int
+    /// Which event-log stream this record belongs to.
     public let stream: EventStream
+    /// The INDI device this event pertains to, if any.
     public let device: String?
+    /// The script run this event pertains to, if any.
     public let runId: String?
+    /// When the server recorded this event.
     public let occurredAt: String
+    /// The event's raw payload — decode with `decodedMessage()` or `decodedScriptStatus()`
+    /// depending on `stream`.
     public let payload: Value
 
+    /// Creates a new event record.
     public init(
         id: Int,
         stream: EventStream,

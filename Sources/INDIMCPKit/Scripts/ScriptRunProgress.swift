@@ -5,7 +5,9 @@
 /// `nil` for a step with no single role of its own (`run_script`, `repeat`, `if` with no
 /// `condition.role`).
 public struct ScriptRunProgress: Codable, Sendable, Hashable {
+    /// The id of the running run.
     public let runId: String
+    /// The id of the rig the run is executing on.
     public let rigId: String
 
     /// Already 1-based, not a 0-based index: the server increments its internal step counter
@@ -14,11 +16,16 @@ public struct ScriptRunProgress: Codable, Sendable, Hashable {
     /// as-is ("Step \(step) of \(totalSteps)") — adding 1 double-counts and can show e.g.
     /// "Step 3 of 2" on a 2-step script's final progress report.
     public let step: Int
+    /// The total number of steps in the run, if known.
     public let totalSteps: Int?
+    /// A human-readable description of the current step, if provided.
     public let message: String?
+    /// The rig role the current step is acting on, if it has a single one of its own.
     public let role: String?
+    /// The INDI device the current step is acting on, if it has a single one of its own.
     public let device: String?
 
+    /// Creates a new script run progress report.
     public init(
         runId: String,
         rigId: String,

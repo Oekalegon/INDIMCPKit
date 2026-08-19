@@ -7,9 +7,13 @@
 /// is usually more useful than nothing), but a caller needing certainty of a live reading must
 /// check this flag rather than assume a non-empty `properties` means it got one.
 public struct DeviceProperties: Codable, Sendable, Hashable {
+    /// The device's property vectors, keyed by property name.
     public let properties: [String: DeviceProperty]
+    /// Whether the server observed a fresh property update for the device after requesting one —
+    /// `false` means the driver didn't respond in time and `properties` is a cached reading.
     public let refreshed: Bool
 
+    /// Creates a new device properties snapshot.
     public init(properties: [String: DeviceProperty], refreshed: Bool) {
         self.properties = properties
         self.refreshed = refreshed

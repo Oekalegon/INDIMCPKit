@@ -1,0 +1,41 @@
+# Rigs and Observatories
+
+Model a physical hardware setup as a saved rig, and keep it in sync with what's actually connected.
+
+## Overview
+
+A ``Rig`` is a named set of ``Component``s, each declaring which ``Role`` it plays (mount, camera,
+guide camera, filter wheel, focuser, rotator, power hub, observatory control, flat screen, dew
+heater, or guide telescope). Device handles like ``Mount`` and ``Camera`` are always reached
+through a rig — `client.mount(rigId:)`, not by device name directly.
+
+```swift
+let rigs = try await client.listRigs()
+let rig = try await client.getRig(id: "my-rig")
+```
+
+### Reconciling a rig with live hardware
+
+Because a rig is a saved configuration and INDI devices connect and disconnect independently,
+INDIMCPKit provides reconciliation helpers rather than assuming the two never drift:
+
+- ``INDIMCPClient/suggestRig()`` proposes which configured rig is likely mounted, by matching
+  currently connected INDI devices — never auto-selects, just ranks candidates.
+- ``INDIMCPClient/checkRig(id:)`` reports which of a rig's declared devices aren't currently
+  connected, as a warning rather than a hard failure.
+- ``INDIMCPClient/draftRig()`` pre-fills a ``RigDraft`` skeleton from whatever's currently
+  connected, as a starting point for saving a new rig.
+- ``INDIMCPClient/syncFilterNames(rigID:role:)`` and
+  ``INDIMCPClient/adoptFilterNamesFromDriver(rigID:role:)`` push or pull filter-wheel slot names
+  between a rig's saved configuration and the live driver — both deliberate, one-directional
+  actions only, never run automatically.
+
+All of these require INDI messaging to be running (`INDIMCPClient.startINDIMessaging()`).
+
+## Observatories
+
+An ``Observatory`` is a saved location (latitude/longitude/elevation) that can be attached to a
+script run via `runScript(locationId:)` — currently consumed by `capture_frame`'s celestial-context
+FITS headers. ``INDIMCPClient/draftObservatory()`` pre-fills an ``ObservatoryDraft`` from a
+connected GPS/location-capable INDI device, the same "draft, never auto-save" pattern as
+``INDIMCPClient/draftRig()``.
