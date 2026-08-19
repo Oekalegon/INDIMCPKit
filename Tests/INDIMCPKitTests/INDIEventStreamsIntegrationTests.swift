@@ -160,6 +160,15 @@ struct INDIEventStreamsIntegrationTests {
         try await IndiServerTestLock.withLock {
             let client = try await connectedTestClient()
 
+            // Trigger the event before subscribing, not after — subscribeToResourceUpdates
+            // yields once immediately upon subscribing, reflecting whatever's already in the
+            // rolling buffer, so the very first window deterministically already contains this
+            // connectionMade event. Subscribing first and racing a sleep against a later trigger
+            // (the old shape here) has no such guarantee and can miss the live notification
+            // under load — the same class of flakiness already fixed once in this codebase for
+            // ObservableMessageStreamIntegrationTests (IMCPKIT-19).
+            _ = try await client.startINDIServer()
+
             let sawConnectionMade = try await withThrowingTaskGroup(of: Bool.self) { group in
                 group.addTask {
                     for try await events in client.connectionEvents(target: "indiserver") {
@@ -170,10 +179,6 @@ struct INDIEventStreamsIntegrationTests {
                     return false
                 }
                 group.addTask {
-                    // Give the subscription above a moment to actually register before
-                    // publishing the event it's waiting for.
-                    try await Task.sleep(for: .milliseconds(200))
-                    _ = try await client.startINDIServer()
                     try await Task.sleep(for: .seconds(10))
                     return false
                 }

@@ -44,6 +44,11 @@ extension INDIMCPClient {
     /// `messageEvents`. Covers connection changes for this server's own link to `indiserver`
     /// (`target: "server"`), the `indiserver` process (`target: "indiserver"`), and individual
     /// driver processes (`target`: that driver's catalog label) — see `ConnectionEvent`.
+    ///
+    /// - Parameter target: Scopes the stream to one connection target, if given; `nil` for every
+    ///   target.
+    /// - Returns: A stream yielding the resource's rolling window of recent connection events,
+    ///   newest first, once immediately and again on every server-side update.
     public func connectionEvents(target: String? = nil) -> AsyncThrowingStream<[ConnectionEvent], Error> {
         subscribeToResourceUpdates(
             uri: Self.connectionURI(target: target),
