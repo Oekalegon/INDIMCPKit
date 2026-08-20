@@ -66,20 +66,48 @@ extension INDIMCPClient {
     /// Captures `count` bias frames back to back.
     ///
     /// Needs none of mount position, filter, focus, or a specific sensor temperature — a bias
-    /// frame is the shortest exposure the camera supports, shutter closed.
+    /// frame is the shortest exposure the camera supports, shutter closed. `gain`/`offset`
+    /// omitted (the default) leave the device's current setting alone rather than sending a
+    /// fixed number.
+    ///
+    /// - Parameters:
+    ///   - rigId: The `Rig` to run the sequence on, as saved via `saveRig`.
+    ///   - count: Number of bias frames to capture.
+    ///   - exposureSeconds: Exposure length for each bias frame, in seconds — typically the
+    ///     shortest the camera supports.
+    ///   - gain: Camera gain to apply to each frame, in the device's native units. Omit to leave
+    ///     the camera's current gain setting unchanged.
+    ///   - offset: Camera offset to apply to each frame, in the device's native units. Omit to
+    ///     leave the camera's current offset setting unchanged.
+    ///   - locationId: A saved `Observatory` identifying this sequence's celestial-context FITS
+    ///     headers, best-effort.
+    /// - Returns: A `ScriptRunStarted` acknowledging the newly started run, including whether
+    ///   it's `pausable`.
+    /// - Throws: `INDIMCPClientError.toolCallFailed` if `rigId` is unknown to the server or the
+    ///   server rejects the run, or another `INDIMCPClientError` case on a transport/connection
+    ///   failure.
     public func captureBiasSequence(
         rigId: String,
         count: Int,
         exposureSeconds: Double = 0,
+        gain: Double? = nil,
+        offset: Double? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
-        try await runScript(
+        var parameters: [String: Value] = [
+            "exposureSeconds": .double(exposureSeconds),
+            "count": .int(count),
+        ]
+        if let gain {
+            parameters["gain"] = .double(gain)
+        }
+        if let offset {
+            parameters["offset"] = .double(offset)
+        }
+        return try await runScript(
             scriptId: "capture_bias_sequence",
             rigId: rigId,
-            parameters: [
-                "exposureSeconds": .double(exposureSeconds),
-                "count": .int(count),
-            ],
+            parameters: parameters,
             locationId: locationId
         )
     }
