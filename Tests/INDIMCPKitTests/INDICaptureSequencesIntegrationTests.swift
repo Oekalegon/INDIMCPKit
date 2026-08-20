@@ -71,7 +71,10 @@ struct INDICaptureSequencesIntegrationTests {
         let client = try await connectedTestClient()
 
         let dark = try await client.getScript(id: "capture_dark_sequence")
-        #expect(Set(dark.parameters.keys) == ["targetTempC", "exposureSeconds", "count"])
+        #expect(
+            Set(dark.parameters.keys)
+                == ["targetTempC", "exposureSeconds", "count", "gain", "offset"]
+        )
 
         let bias = try await client.getScript(id: "capture_bias_sequence")
         #expect(Set(bias.parameters.keys) == ["exposureSeconds", "count"])

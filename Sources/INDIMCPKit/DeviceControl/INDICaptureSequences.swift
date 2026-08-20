@@ -14,21 +14,51 @@ extension INDIMCPClient {
     ///
     /// Deliberately skips mount positioning, filter selection, and focus — only sensor
     /// temperature and `exposureSeconds` need to match the light frames this calibrates.
+    /// `gain`/`offset` omitted (the default) leave the device's current setting alone rather
+    /// than sending a fixed number.
+    ///
+    /// - Parameters:
+    ///   - rigId: The `Rig` to run the sequence on, as saved via `saveRig`.
+    ///   - exposureSeconds: Exposure length for each dark frame, in seconds, matching the light
+    ///     frames this calibrates.
+    ///   - count: Number of dark frames to capture.
+    ///   - targetTempC: Sensor temperature to cool the camera to before capturing, in degrees
+    ///     Celsius.
+    ///   - gain: Camera gain to apply to each frame, in the device's native units. Omit to leave
+    ///     the camera's current gain setting unchanged.
+    ///   - offset: Camera offset to apply to each frame, in the device's native units. Omit to
+    ///     leave the camera's current offset setting unchanged.
+    ///   - locationId: A saved `Observatory` identifying this sequence's celestial-context FITS
+    ///     headers, best-effort.
+    /// - Returns: A `ScriptRunStarted` acknowledging the newly started run, including whether
+    ///   it's `pausable`.
+    /// - Throws: `INDIMCPClientError.toolCallFailed` if `rigId` is unknown to the server or the
+    ///   server rejects the run, or another `INDIMCPClientError` case on a transport/connection
+    ///   failure.
     public func captureDarkSequence(
         rigId: String,
         exposureSeconds: Double,
         count: Int,
         targetTempC: Double = -10,
+        gain: Double? = nil,
+        offset: Double? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
-        try await runScript(
+        var parameters: [String: Value] = [
+            "targetTempC": .double(targetTempC),
+            "exposureSeconds": .double(exposureSeconds),
+            "count": .int(count),
+        ]
+        if let gain {
+            parameters["gain"] = .double(gain)
+        }
+        if let offset {
+            parameters["offset"] = .double(offset)
+        }
+        return try await runScript(
             scriptId: "capture_dark_sequence",
             rigId: rigId,
-            parameters: [
-                "targetTempC": .double(targetTempC),
-                "exposureSeconds": .double(exposureSeconds),
-                "count": .int(count),
-            ],
+            parameters: parameters,
             locationId: locationId
         )
     }
