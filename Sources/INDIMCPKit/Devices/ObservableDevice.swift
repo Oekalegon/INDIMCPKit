@@ -47,8 +47,13 @@ public final class ObservableDevice: DeviceHandle {
     /// point since the last `start()`.
     public private(set) var lastError: String?
 
+    /// The still-in-flight `start()` call, if any — resolving the device name and taking the
+    /// initial snapshot before `beginSubscription`/`beginResync` even run. Cancelled by `teardown`
+    /// alongside the other two tasks so a second `start()` can't race a first one still setting up.
     private var startTask: Task<Void, Never>?
+    /// The live `messageEvents` consumer loop started by `beginSubscription`, if running.
     private var subscriptionTask: Task<Void, Never>?
+    /// The periodic `refreshSnapshot` safety-net loop started by `beginResync`, if running.
     private var resyncTask: Task<Void, Never>?
 
     /// The device `beginSubscription` last subscribed `messageEvents` for, if any — recorded so
@@ -164,6 +169,8 @@ public final class ObservableDevice: DeviceHandle {
         }
     }
 
+    /// Subscribes to `device`'s live `messageEvents` and applies each incoming event to
+    /// `properties` as it arrives, until cancelled.
     private func beginSubscription(device: String) {
         subscribedDevice = device
         subscriptionTask = Task { [weak self] in
@@ -184,6 +191,9 @@ public final class ObservableDevice: DeviceHandle {
         }
     }
 
+    /// Loops forever, sleeping `interval` between calls, refreshing `device`'s snapshot as a
+    /// safety net against updates `beginSubscription`'s live stream may have silently missed —
+    /// until cancelled.
     private func beginResync(device: String, interval: Duration) {
         resyncTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -194,6 +204,8 @@ public final class ObservableDevice: DeviceHandle {
         }
     }
 
+    /// Takes a fresh `getDeviceProperties` snapshot for `device` and replaces `properties`/
+    /// `isRefreshed` with it, or records the failure to `lastError`.
     private func refreshSnapshot(device: String) async {
         do {
             let snapshot = try await client.getDeviceProperties(device: device)

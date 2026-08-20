@@ -44,6 +44,7 @@ public final class ObservableMessageStream {
     /// `start(device:)` call, cleared again on the next one.
     public private(set) var lastError: String?
 
+    /// The live `messageEvents` consumer loop started by `beginSubscription`, if any.
     private var subscriptionTask: Task<Void, Never>?
 
     /// Whether `subscribedDevice` reflects an actual subscription in flight — distinct from
@@ -51,6 +52,9 @@ public final class ObservableMessageStream {
     /// own valid device value; without this separate flag, `teardown()` couldn't tell "never
     /// started" apart from "currently subscribed unscoped."
     private var isSubscribed = false
+    /// The device the current subscription is scoped to, or `nil` for the unscoped stream —
+    /// recorded so `teardown()` can unsubscribe the exact `indi://messages` URI that was
+    /// subscribed.
     private var subscribedDevice: String?
 
     // No deinit cancelling these — same reasoning as `ObservableDevice`: `deinit` runs
@@ -86,6 +90,8 @@ public final class ObservableMessageStream {
         await teardown()
     }
 
+    /// Cancels the in-flight subscription task and, if actually subscribed, waits for the
+    /// server to confirm the unsubscribe before returning.
     private func teardown() async {
         // A second start()/stop() landing while this teardown() is still awaiting the server's
         // unsubscribe confirmation (actor reentrancy — this suspends at that await, so another
@@ -102,6 +108,8 @@ public final class ObservableMessageStream {
         }
     }
 
+    /// Subscribes to `indi://messages` (scoped to `device` if given) and applies each incoming
+    /// window to `events` as it arrives, until cancelled.
     private func beginSubscription(device: String?) {
         subscriptionTask = Task { [weak self] in
             guard let self else { return }
