@@ -56,23 +56,35 @@ extension INDIMCPClient {
 
     /// Selects `filterName`, moves the focuser to `focusPosition`, then captures `count` flat
     /// frames.
+    ///
+    /// `gain`/`offset` omitted (the default) leave the device's current setting alone rather
+    /// than sending a fixed number.
     public func captureFlatSequence(
         rigId: String,
         filterName: String,
         focusPosition: Int,
         exposureSeconds: Double,
         count: Int,
+        gain: Double? = nil,
+        offset: Double? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
-        try await runScript(
+        var parameters: [String: Value] = [
+            "filterName": .string(filterName),
+            "focusPosition": .int(focusPosition),
+            "exposureSeconds": .double(exposureSeconds),
+            "count": .int(count),
+        ]
+        if let gain {
+            parameters["gain"] = .double(gain)
+        }
+        if let offset {
+            parameters["offset"] = .double(offset)
+        }
+        return try await runScript(
             scriptId: "capture_flat_sequence",
             rigId: rigId,
-            parameters: [
-                "filterName": .string(filterName),
-                "focusPosition": .int(focusPosition),
-                "exposureSeconds": .double(exposureSeconds),
-                "count": .int(count),
-            ],
+            parameters: parameters,
             locationId: locationId
         )
     }
