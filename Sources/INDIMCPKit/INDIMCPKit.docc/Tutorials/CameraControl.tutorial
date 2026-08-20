@@ -1,0 +1,12 @@
+@Tutorials(name: "Controlling the Camera") {
+    @Intro(title: "Controlling the Camera") {
+        Connect to an INDIMCP-server instance, cool a camera, capture an exposure, and follow
+        the resulting frame from the server to a checksum-verified file on disk.
+    }
+
+    @Chapter(name: "Capture Your First Frame") {
+        Cool the camera, capture a single light frame, then retrieve, verify, and confirm it.
+
+        @TutorialReference(tutorial: "doc:ControllingTheCamera")
+    }
+}
