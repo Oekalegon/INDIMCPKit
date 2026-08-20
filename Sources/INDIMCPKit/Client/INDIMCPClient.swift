@@ -15,8 +15,9 @@ public final class INDIMCPClient: Sendable {
     /// to keep tool-call error-shape handling (`structuredContent(forToolNamed:arguments:)`)
     /// centralized rather than reimplemented per call site.
     let client: Client
-    /// The Streamable HTTP transport `connect()` hands to `client`; kept alive here for the
-    /// client's whole lifetime since `Client.connect(transport:)` doesn't retain it.
+    /// The Streamable HTTP transport constructed in `init` and handed to `client` in
+    /// `connect()`. Stored so it survives between those two calls — `Client` itself retains it
+    /// for the connection's actual lifetime once `connect(transport:)` runs.
     private let transport: HTTPClientTransport
     /// Internal (not `private`) for the same reason as `client` — `Frames/INDIMCPClient+
     /// FrameDownload.swift`'s `reachableURL(for:)` needs this client's own connection host.
