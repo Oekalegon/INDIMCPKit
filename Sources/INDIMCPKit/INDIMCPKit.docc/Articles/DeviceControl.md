@@ -72,11 +72,11 @@ Beyond a single ``Camera/captureFrame(exposureSeconds:frameType:binningX:binning
 exposure, INDIMCPKit wraps four composed, multi-step scripts that capture a whole sequence of
 frames in one call. Unlike the single-action commands above, these have no dedicated server-side
 tool of their own — they're reachable only through the generic script mechanism, so they're
-`INDIMCPClient` methods rather than being exposed on ``Camera`` directly:
+implemented as `INDIMCPClient` methods, with a thin ``Camera``-scoped wrapper over each that runs
+the same connectivity check as every other ``Camera`` command before delegating:
 
 ```swift
-let started = try await client.captureLightSequence(
-    rigId: "my-rig",
+let started = try await camera.captureLightSequence(
     ra: 5.5, dec: 12.3,
     filterName: "Ha",
     focusPosition: 15000,
@@ -85,14 +85,18 @@ let started = try await client.captureLightSequence(
 )
 ```
 
-- ``INDIMCPClient/captureLightSequence(rigId:ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:gain:offset:locationId:)``
+- ``Camera/captureLightSequence(ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:gain:offset:locationId:)``
+  (``INDIMCPClient/captureLightSequence(rigId:ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:gain:offset:locationId:)``)
   — the imaging-session entry point: slews to `ra`/`dec`, selects a filter, moves the focuser,
   cools the camera, then captures `count` light frames.
-- ``INDIMCPClient/captureDarkSequence(rigId:exposureSeconds:count:targetTempC:gain:offset:locationId:)`` —
-  cools the camera and captures `count` dark frames at a matching exposure length.
-- ``INDIMCPClient/captureBiasSequence(rigId:count:exposureSeconds:gain:offset:locationId:)`` — captures
-  `count` bias frames back to back, shutter closed.
-- ``INDIMCPClient/captureFlatSequence(rigId:filterName:focusPosition:exposureSeconds:count:gain:offset:locationId:)``
+- ``Camera/captureDarkSequence(exposureSeconds:count:targetTempC:gain:offset:locationId:)``
+  (``INDIMCPClient/captureDarkSequence(rigId:exposureSeconds:count:targetTempC:gain:offset:locationId:)``)
+  — cools the camera and captures `count` dark frames at a matching exposure length.
+- ``Camera/captureBiasSequence(count:exposureSeconds:gain:offset:locationId:)``
+  (``INDIMCPClient/captureBiasSequence(rigId:count:exposureSeconds:gain:offset:locationId:)``) —
+  captures `count` bias frames back to back, shutter closed.
+- ``Camera/captureFlatSequence(filterName:focusPosition:exposureSeconds:count:gain:offset:locationId:)``
+  (``INDIMCPClient/captureFlatSequence(rigId:filterName:focusPosition:exposureSeconds:count:gain:offset:locationId:)``)
   — selects a filter and focus position, then captures `count` flat frames. For sweeping a whole
   grid of flat/dark/bias settings in one run instead, see <doc:CalibrationSweeps>.
 
