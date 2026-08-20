@@ -9,8 +9,15 @@ import MCP
 /// network-reachable deployment mode — see the INDIMCP-server deployment docs for why `stdio` is
 /// local-testing-only and not a supported target here.
 public final class INDIMCPClient: Sendable {
+    /// Internal (not `private`) so the `EventStreams`/`Frames` extension files that implement
+    /// resource-subscription and frame-download support can reach it. Callers outside this file
+    /// should still go through `callTool`/`callToolList`/`callToolUnion`, not `client` directly,
+    /// to keep tool-call error-shape handling (`structuredContent(forToolNamed:arguments:)`)
+    /// centralized rather than reimplemented per call site.
     let client: Client
     private let transport: HTTPClientTransport
+    /// Internal (not `private`) for the same reason as `client` — `Frames/INDIMCPClient+
+    /// FrameDownload.swift`'s `reachableURL(for:)` needs this client's own connection host.
     let endpoint: URL
 
     /// Creates a client pointed at an INDIMCP-server instance. Call `connect()` before issuing
