@@ -10,13 +10,20 @@ import MCP
 /// detail this kit stays generic about. `steps` is kept as raw `Value`; `id`/`name`/
 /// `description`/`pausable`/`parameters` are stable across every script and typed normally.
 public struct Script: Codable, Sendable, Hashable {
+    /// The script's unique identifier.
     public let id: String
+    /// The script's human-readable name.
     public let name: String
+    /// A human-readable description of the script, if provided.
     public let description: String?
+    /// Whether the script can be paused mid-run.
     public let pausable: Bool
+    /// The script's declared parameters, keyed by name.
     public let parameters: [String: Parameter]
+    /// The script's steps, kept as raw, untyped values (see this type's discussion above).
     public let steps: [Value]
 
+    /// Creates a new script.
     public init(
         id: String,
         name: String,

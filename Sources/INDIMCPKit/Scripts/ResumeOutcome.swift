@@ -6,7 +6,9 @@
 /// reused here for a rejected resume too, per the server's own docstring: a run whose script
 /// isn't pausable, or one already terminal, can't be paused *or* resumed.
 public enum ResumeOutcome: Sendable, Hashable {
+    /// The run was resumed.
     case resumed(ScriptRunResumed)
+    /// The run couldn't be paused or resumed.
     case rejected(ScriptRunPauseRejected)
 }
 
@@ -15,6 +17,7 @@ extension ResumeOutcome: Codable {
         case kind
     }
 
+    /// Decodes a resume outcome, dispatching on its `kind` tag.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let kind = try container.decode(String.self, forKey: .kind)
@@ -32,6 +35,7 @@ extension ResumeOutcome: Codable {
         }
     }
 
+    /// Encodes this resume outcome, tagged with its `kind`.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {

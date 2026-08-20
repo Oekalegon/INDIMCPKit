@@ -14,17 +14,26 @@ import Foundation
 /// the `stdio` transport). `downloadFrame` needs a non-`nil` value to actually fetch the frame's
 /// bytes.
 public struct FrameMetadataResponse: Codable, Sendable, Hashable {
+    /// The frame's unique, server-assigned identifier.
     public let frameId: String
+    /// The script run that captured this frame, if any — `nil` for an ad hoc `capture_frame` call
+    /// not made through a script.
     public let runId: String?
+    /// The camera device that captured this frame.
     public let device: String
+    /// The frame file's size in bytes, as last recorded server-side.
     public let sizeBytes: Int
     /// The frame file's SHA-256 checksum, as a lowercase hex string. `nil` only for a frame
     /// captured before checksum support existed server-side — see `FrameMetadata.checksumSha256`,
     /// whose doc comment this mirrors exactly. Compare a downloaded file against this with
     /// `verifyChecksum(ofFileAt:)`.
     public let checksumSha256: String?
+    /// When this frame was captured, as an ISO 8601 timestamp string.
     public let capturedAt: String
+    /// When `confirmFrameTransfer` was called for this frame, or `nil` if it hasn't been yet.
     public let transferredAt: String?
+    /// A `GET`-able URL for this frame's raw bytes, or `nil` if the server has no HTTP listener
+    /// to build one from. `downloadFrame` needs a non-`nil` value to actually fetch the bytes.
     public let downloadUrl: String?
     /// Conditions about this particular frame's metadata worth telling the caller about — always
     /// an array, empty when there's nothing to report, never `nil`.

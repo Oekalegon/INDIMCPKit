@@ -10,6 +10,8 @@ public enum PropertyState: Sendable, Hashable {
     case alert
     case other(String)
 
+    /// Creates a property state from its raw INDI string, falling back to `.other(_:)` for any
+    /// value outside the four known states.
     public init(rawValue: String) {
         switch rawValue {
         case "Idle": self = .idle
@@ -20,6 +22,7 @@ public enum PropertyState: Sendable, Hashable {
         }
     }
 
+    /// The raw INDI string for this state (e.g. `"Idle"`, `"Ok"`).
     public var rawValue: String {
         switch self {
         case .idle: return "Idle"
@@ -32,10 +35,13 @@ public enum PropertyState: Sendable, Hashable {
 }
 
 extension PropertyState: Codable {
+    /// Decodes from the raw INDI string, tolerating any value outside the four known states via
+    /// `.other(_:)` rather than throwing.
     public init(from decoder: Decoder) throws {
         self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
     }
 
+    /// Encodes as the raw INDI string.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(rawValue)

@@ -33,6 +33,7 @@ extension FlatCalibrationSweepStatus: Codable {
         case kind
     }
 
+    /// Decodes whichever `kind`-tagged case the payload's `kind` field names.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let kind = try container.decode(String.self, forKey: .kind)
@@ -56,6 +57,7 @@ extension FlatCalibrationSweepStatus: Codable {
         }
     }
 
+    /// Encodes the wrapped case together with its discriminating `kind` field.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {

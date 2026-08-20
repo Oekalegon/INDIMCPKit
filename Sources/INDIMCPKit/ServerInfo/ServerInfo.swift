@@ -10,9 +10,12 @@
 /// Compare against `alignedINDIMCPServerVersion` to detect drift between the server this kit's
 /// tool definitions were last verified against and the one an app is actually talking to.
 public struct ServerInfo: Codable, Sendable, Hashable {
+    /// The server's package version.
     public let version: String
+    /// When `develop` was last merged into the running server's checkout, or `nil` if unknown.
     public let buildTimestamp: String?
 
+    /// Creates a new server info.
     public init(version: String, buildTimestamp: String?) {
         self.version = version
         self.buildTimestamp = buildTimestamp
