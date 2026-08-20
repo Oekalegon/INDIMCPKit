@@ -113,6 +113,8 @@ generically through ``Script`` and the script-run lifecycle types.
 - ``EventStream``
 - ``EventRecord``
 - ``ObservableMessageStream``
+- ``ConnectionEvent``
+- ``ConnectionEventKind``
 
 ### Live messaging and properties
 

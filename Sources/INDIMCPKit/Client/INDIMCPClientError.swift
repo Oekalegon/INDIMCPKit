@@ -14,11 +14,12 @@ public enum INDIMCPClientError: Error, Sendable {
     /// terminal status.
     case pollingTimedOut(runId: String, attempts: Int)
 
-    /// A `resources/read` on `uri` (`messageEvents`/`scriptEvents`'s initial read, or a re-read
-    /// triggered by a `notifications/resources/updated`) returned no text content to decode.
-    /// Every `indi://messages`/`indi://scripts` resource is expected to return one JSON text
-    /// content item; a missing one usually means a version mismatch between this kit and the
-    /// server it's talking to, the same way `missingStructuredContent` does for tool calls.
+    /// A `resources/read` on `uri` (`messageEvents`/`scriptEvents`/`connectionEvents`'s initial
+    /// read, or a re-read triggered by a `notifications/resources/updated`) returned no text
+    /// content to decode. Every `indi://messages`/`indi://mcp-server` resource is expected to
+    /// return one JSON text content item; a missing one usually means a version mismatch between
+    /// this kit and the server it's talking to, the same way `missingStructuredContent` does for
+    /// tool calls.
     case missingResourceContent(uri: String)
 
     /// `downloadFrame` was asked to download a frame whose `downloadUrl` is `nil` — the server

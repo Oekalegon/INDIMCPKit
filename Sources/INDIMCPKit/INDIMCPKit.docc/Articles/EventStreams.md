@@ -4,11 +4,13 @@ Subscribe to live INDI messaging and script events, and catch up on what a disco
 
 ## Overview
 
-INDIMCP-server exposes two live MCP resources — `indi://messages` and `indi://scripts` — plus a
-durable event log for catching up after a gap. INDIMCPKit's ``EventStream`` enumerates both live
-resources; ``INDIMCPClient/messageEvents(device:)`` and ``INDIMCPClient/scriptEvents(runId:)``
-subscribe to them, each returning an `AsyncThrowingStream` yielded once immediately and again
-every time the server notifies the resource changed:
+INDIMCP-server exposes three live MCP resources — `indi://messages`,
+`indi://mcp-server/scripts`, and `indi://mcp-server/connection` — plus a durable event log for
+catching up after a gap. INDIMCPKit's ``EventStream`` enumerates all three live resources;
+``INDIMCPClient/messageEvents(device:)``, ``INDIMCPClient/scriptEvents(runId:)``, and
+``INDIMCPClient/connectionEvents(target:)`` subscribe to them, each returning an
+`AsyncThrowingStream` yielded once immediately and again every time the server notifies the
+resource changed:
 
 ```swift
 for try await events in client.messageEvents(device: "CCD Simulator") {
@@ -28,9 +30,15 @@ iterating it or an error is thrown.
 
 Use ``INDIMCPClient/getEvents(stream:device:runId:since:)`` against the durable event log instead
 — each ``EventRecord`` has a stable `id` to dedupe against, unlike the live streams' rolling
-windows. `EventRecord/decodedMessage()` and `EventRecord/decodedScriptStatus()` decode a record's
-raw payload into ``IndiEvent`` or ``ScriptRunStatus`` depending on which ``EventStream`` it came
-from.
+windows. `EventRecord/decodedMessage()`, `EventRecord/decodedScriptStatus()`, and
+`EventRecord/decodedConnectionEvent()` decode a record's raw payload into ``IndiEvent``,
+``ScriptRunStatus``, or ``ConnectionEvent`` depending on which ``EventStream`` it came from.
+
+## Connection events
+
+``ConnectionEvent`` tracks connectivity transitions (``ConnectionEventKind/connectionMade``/
+``ConnectionEventKind/connectionLost``) for this client's own link to `indiserver`, the
+`indiserver` process itself, and individual driver processes — whichever `target` the event names.
 
 ## Keeping a device's properties live
 

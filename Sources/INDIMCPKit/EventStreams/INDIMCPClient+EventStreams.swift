@@ -26,12 +26,33 @@ extension INDIMCPClient {
         )
     }
 
-    /// Subscribes to the scripting-layer event stream (`indi://scripts`), optionally scoped to one
-    /// `runId` — same shape and caveats as `messageEvents`.
+    /// Subscribes to the scripting-layer event stream (`indi://mcp-server/scripts`), optionally
+    /// scoped to one `runId` — same shape and caveats as `messageEvents`.
+    ///
+    /// Renamed server-side from the top-level `indi://scripts` by INDIMCP-57 (a clean rename, no
+    /// server-side back-compat) — see `EventStream`'s doc comment.
     public func scriptEvents(runId: String? = nil) -> AsyncThrowingStream<[ScriptRunStatus], Error> {
         subscribeToResourceUpdates(
             uri: Self.scriptsURI(runId: runId),
             decoding: ScriptsEnvelope.self,
+            transform: \.events
+        )
+    }
+
+    /// Subscribes to the connection-lifecycle event stream (`indi://mcp-server/connection`,
+    /// INDIMCP-57), optionally scoped to one `target` — same shape and caveats as
+    /// `messageEvents`. Covers connection changes for this server's own link to `indiserver`
+    /// (`target: "server"`), the `indiserver` process (`target: "indiserver"`), and individual
+    /// driver processes (`target`: that driver's catalog label) — see `ConnectionEvent`.
+    ///
+    /// - Parameter target: Scopes the stream to one connection target, if given; `nil` for every
+    ///   target.
+    /// - Returns: A stream yielding the resource's rolling window of recent connection events,
+    ///   newest first, once immediately and again on every server-side update.
+    public func connectionEvents(target: String? = nil) -> AsyncThrowingStream<[ConnectionEvent], Error> {
+        subscribeToResourceUpdates(
+            uri: Self.connectionURI(target: target),
+            decoding: ConnectionEnvelope.self,
             transform: \.events
         )
     }
@@ -41,9 +62,14 @@ extension INDIMCPClient {
         let events: [IndiEvent]
     }
 
-    /// `indi://scripts` resource content, same envelope shape as `MessagesEnvelope`.
+    /// `indi://mcp-server/scripts` resource content, same envelope shape as `MessagesEnvelope`.
     private struct ScriptsEnvelope: Decodable, Sendable {
         let events: [ScriptRunStatus]
+    }
+
+    /// `indi://mcp-server/connection` resource content, same envelope shape as `MessagesEnvelope`.
+    private struct ConnectionEnvelope: Decodable, Sendable {
+        let events: [ConnectionEvent]
     }
 
     /// Matches INDIMCP-server's `event_streams.messages_uri` exactly, including its percent-
@@ -56,10 +82,20 @@ extension INDIMCPClient {
         return "indi://messages/\(percentEncoded(device))"
     }
 
-    /// Matches INDIMCP-server's `event_streams.scripts_uri` — see `messagesURI`.
+    /// Matches INDIMCP-server's `event_streams.scripts_uri` — see `messagesURI`. Renamed
+    /// server-side from `indi://scripts` by INDIMCP-57.
     static func scriptsURI(runId: String?) -> String {
-        guard let runId else { return "indi://scripts" }
-        return "indi://scripts/\(percentEncoded(runId))"
+        guard let runId else { return "indi://mcp-server/scripts" }
+        return "indi://mcp-server/scripts/\(percentEncoded(runId))"
+    }
+
+    /// Matches INDIMCP-server's `event_streams.connection_uri` — see `messagesURI`. `target` is
+    /// `"server"`/`"indiserver"`/a driver label; percent-encoded the same way `device`/`runId`
+    /// already are, since a driver's catalog label is caller-supplied text with no guarantee it's
+    /// URL-safe as-is.
+    static func connectionURI(target: String?) -> String {
+        guard let target else { return "indi://mcp-server/connection" }
+        return "indi://mcp-server/connection/\(percentEncoded(target))"
     }
 
     /// ASCII-only unreserved set (RFC 3986), matching Python's `quote(safe="")` exactly.
