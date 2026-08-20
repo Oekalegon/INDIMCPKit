@@ -5,7 +5,7 @@
 public struct SensorCalibrationSweepCompleted: Codable, Sendable, Hashable {
     /// The sweep that completed.
     public let sweepId: String
-    /// The rig the sweep ran against.
+    /// The id of the rig the sweep ran against.
     public let rigId: String
     /// When the sweep finished, as an ISO 8601 timestamp string.
     public let finishedAt: String
@@ -16,7 +16,7 @@ public struct SensorCalibrationSweepCompleted: Codable, Sendable, Hashable {
     ///
     /// - Parameters:
     ///   - sweepId: The sweep that completed.
-    ///   - rigId: The rig the sweep ran against.
+    ///   - rigId: The id of the rig the sweep ran against.
     ///   - finishedAt: When the sweep finished, as an ISO 8601 timestamp string.
     ///   - results: Every combination's finished capture run.
     public init(

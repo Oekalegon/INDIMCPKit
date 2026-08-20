@@ -5,7 +5,7 @@
 public struct FlatCalibrationSweepCancelled: Codable, Sendable, Hashable {
     /// The sweep that was cancelled.
     public let sweepId: String
-    /// The rig the sweep ran against.
+    /// The id of the rig the sweep ran against.
     public let rigId: String
     /// 0-indexed position, in the sweep's own combination order, of the combination that was in
     /// flight (or about to start) when cancellation took effect.
@@ -20,7 +20,7 @@ public struct FlatCalibrationSweepCancelled: Codable, Sendable, Hashable {
     ///
     /// - Parameters:
     ///   - sweepId: The sweep that was cancelled.
-    ///   - rigId: The rig the sweep ran against.
+    ///   - rigId: The id of the rig the sweep ran against.
     ///   - cancelledAtCombination: 0-indexed position of the combination in flight when
     ///     cancellation took effect.
     ///   - finishedAt: When cancellation finished, as an ISO 8601 timestamp string.

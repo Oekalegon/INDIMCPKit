@@ -5,7 +5,7 @@
 /// `nil` for a step with no single role of its own (`run_script`, `repeat`, `if` with no
 /// `condition.role`).
 public struct ScriptRunProgress: Codable, Sendable, Hashable {
-    /// The id of the running run.
+    /// The id of the run this progress report is for.
     public let runId: String
     /// The id of the rig the run is executing on.
     public let rigId: String

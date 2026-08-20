@@ -9,7 +9,7 @@
 public struct FlatCalibrationSweepFailed: Codable, Sendable, Hashable {
     /// The sweep that failed.
     public let sweepId: String
-    /// The rig the sweep ran against.
+    /// The id of the rig the sweep ran against.
     public let rigId: String
     /// 0-indexed position of the failing combination in the sweep's own combination order.
     public let failedAtCombination: Int
@@ -24,7 +24,7 @@ public struct FlatCalibrationSweepFailed: Codable, Sendable, Hashable {
     ///
     /// - Parameters:
     ///   - sweepId: The sweep that failed.
-    ///   - rigId: The rig the sweep ran against.
+    ///   - rigId: The id of the rig the sweep ran against.
     ///   - failedAtCombination: 0-indexed position of the failing combination.
     ///   - message: A human-readable description of the failure.
     ///   - results: Every combination finished before the failure.
