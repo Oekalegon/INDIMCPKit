@@ -15,6 +15,8 @@ public final class INDIMCPClient: Sendable {
     /// to keep tool-call error-shape handling (`structuredContent(forToolNamed:arguments:)`)
     /// centralized rather than reimplemented per call site.
     let client: Client
+    /// The Streamable HTTP transport `connect()` hands to `client`; kept alive here for the
+    /// client's whole lifetime since `Client.connect(transport:)` doesn't retain it.
     private let transport: HTTPClientTransport
     /// Internal (not `private`) for the same reason as `client` — `Frames/INDIMCPClient+
     /// FrameDownload.swift`'s `reachableURL(for:)` needs this client's own connection host.
@@ -110,6 +112,8 @@ public final class INDIMCPClient: Sendable {
         try await callToolUnwrappingResult(name, arguments: arguments, decoding: Output.self)
     }
 
+    /// Shared implementation behind `callToolList`/`callToolUnion`: calls `name`, then decodes
+    /// its `structuredContent` as `{"result": Output}` and returns the unwrapped `result`.
     private func callToolUnwrappingResult<Output: Decodable & Sendable>(
         _ name: String,
         arguments: [String: Value]?,
@@ -119,14 +123,21 @@ public final class INDIMCPClient: Sendable {
         return try Self.decode(ResultWrapper<Output>.self, from: structuredContent).result
     }
 
+    /// Matches FastMCP's `{"result": ...}` wrapping of a bare-list or `Union` tool return value —
+    /// see `callToolUnwrappingResult`.
     private struct ResultWrapper<Wrapped: Decodable & Sendable>: Decodable, Sendable {
         let result: Wrapped
     }
 
+    /// Decodes `value` (already-parsed `structuredContent`) as `Output`, going through
+    /// `decodeValue` since `Value` isn't itself a `Decoder`.
     private static func decode<Output: Decodable>(_ type: Output.Type, from value: Value) throws -> Output {
         try decodeValue(type, from: value)
     }
 
+    /// Calls tool `name`, throwing `INDIMCPClientError.toolCallFailed`/`.missingStructuredContent`
+    /// for the two ways a `tools/call` response can fail to carry a usable typed result, and
+    /// returning the raw `structuredContent` otherwise for the caller to decode.
     private func structuredContent(forToolNamed name: String, arguments: [String: Value]?) async throws -> Value {
         let context: RequestContext<CallTool.Result> = try await client.callTool(
             name: name, arguments: arguments
@@ -147,6 +158,8 @@ public final class INDIMCPClient: Sendable {
         return structuredContent
     }
 
+    /// Joins every text block in a failed tool call's `content` into one message, or a
+    /// placeholder if the server didn't provide any text content.
     private static func errorMessage(from content: [Tool.Content]) -> String {
         let text = content.compactMap { block -> String? in
             if case .text(let text, _, _) = block { return text }

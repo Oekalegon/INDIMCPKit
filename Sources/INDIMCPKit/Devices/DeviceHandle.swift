@@ -11,8 +11,11 @@
 /// caught by building `INDIMCPKitTestApp` (a real external module) against them — `swift test`
 /// alone didn't catch it, since `@testable import` bypasses access control entirely.
 public protocol DeviceHandle: Sendable {
+    /// The MCP client this device handle was obtained from.
     var client: INDIMCPClient { get }
+    /// The id of the rig this device handle belongs to.
     var rigId: String { get }
+    /// The role this device handle plays within its rig.
     var role: Role { get }
 }
 

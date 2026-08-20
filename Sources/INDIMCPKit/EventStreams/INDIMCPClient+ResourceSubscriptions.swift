@@ -140,6 +140,9 @@ extension INDIMCPClient {
         await Self.unsubscribeFromResource(uri: uri, client: client)
     }
 
+    /// `client`-taking counterpart of `unsubscribeFromResource(uri:)`, so `continuation.onTermination`
+    /// above (which only has `client`, not a full `INDIMCPClient`) can call it without capturing
+    /// `self`.
     private static func unsubscribeFromResource(uri: String, client: Client) async {
         // ResourceUnsubscribe.Parameters has no public memberwise initializer (the swift-sdk
         // module only synthesizes one at `internal` access, unlike its Codable init(from:), which
@@ -154,6 +157,7 @@ extension INDIMCPClient {
         _ = try? await client.send(ResourceUnsubscribe.request(params)).value
     }
 
+    /// Reads the resource at `uri` and decodes its text content as `Output`.
     private func readResourceContent<Output: Decodable & Sendable>(
         uri: String,
         decoding type: Output.Type

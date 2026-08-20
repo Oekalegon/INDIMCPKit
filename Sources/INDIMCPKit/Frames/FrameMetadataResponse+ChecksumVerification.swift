@@ -22,8 +22,12 @@ extension FrameMetadataResponse {
         return actual == checksumSha256 ? .matched : .mismatched(expected: checksumSha256, actual: actual)
     }
 
+    /// Read buffer size for `sha256Hex`: 1 MiB, small enough to never meaningfully spike memory
+    /// for a multi-gigabyte frame, large enough to keep the read loop's syscall overhead low.
     private static let chunkSize = 1 << 20
 
+    /// Streams the file at `url` through SHA-256 in `chunkSize` chunks and returns the digest as
+    /// lowercase hex.
     private static func sha256Hex(ofFileAt url: URL) throws -> String {
         let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }

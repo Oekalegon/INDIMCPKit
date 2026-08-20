@@ -42,11 +42,17 @@ extension INDIMCPClient {
         }
     }
 
+    /// The result of resolving which of a rig's components declare a given role, and which of
+    /// those are currently connected.
     private struct RoleConnectivity {
+        /// Ids of every component on the rig declaring the role, connected or not.
         let componentIds: [String]
+        /// The subset of `componentIds` the server currently reports as present/connected.
         let connectedComponentIds: [String]
     }
 
+    /// Resolves `role`'s components on `rigId` via `getRig` and cross-references them against
+    /// `checkRig`'s presence report to determine which, if any, are connected.
     private func roleConnectivity(role: Role, rigId: String) async throws -> RoleConnectivity {
         let rig = try await getRig(id: rigId)
         let componentIds = rig.components.filter { $0.role == role }.map(\.id)

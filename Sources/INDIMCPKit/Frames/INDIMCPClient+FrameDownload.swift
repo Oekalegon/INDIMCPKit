@@ -79,6 +79,8 @@ extension INDIMCPClient {
         return components.url ?? url
     }
 
+    /// Streams `url` to a temporary file via `URLSession`'s download task, checks for a 2xx
+    /// response, then atomically installs it at `destination`.
     private func download(from url: URL, to destination: URL, frameId: String) async throws {
         let (temporaryURL, response) = try await URLSession.shared.download(from: url)
         guard let httpResponse = response as? HTTPURLResponse, (200..<300).contains(httpResponse.statusCode) else {
