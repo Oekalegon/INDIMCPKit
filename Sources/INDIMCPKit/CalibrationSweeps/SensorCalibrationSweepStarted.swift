@@ -6,7 +6,7 @@
 public struct SensorCalibrationSweepStarted: Codable, Sendable, Hashable {
     /// Identifies this sweep for `getSensorCalibrationSweepStatus`/`cancelSensorCalibrationSweep`.
     public let sweepId: String
-    /// The rig the sweep is running against.
+    /// The id of the rig the sweep is running against.
     public let rigId: String
     /// The total number of `(gain, offset, flatExposureSeconds)` combinations this sweep will run
     /// — the cartesian product of the lists passed to `runSensorCalibrationSweep`.
@@ -18,7 +18,7 @@ public struct SensorCalibrationSweepStarted: Codable, Sendable, Hashable {
     ///
     /// - Parameters:
     ///   - sweepId: Identifies this sweep for later status/cancel calls.
-    ///   - rigId: The rig the sweep is running against.
+    ///   - rigId: The id of the rig the sweep is running against.
     ///   - totalCombinations: The total number of combinations this sweep will run.
     ///   - startedAt: When the sweep started, as an ISO 8601 timestamp string.
     public init(sweepId: String, rigId: String, totalCombinations: Int, startedAt: String) {

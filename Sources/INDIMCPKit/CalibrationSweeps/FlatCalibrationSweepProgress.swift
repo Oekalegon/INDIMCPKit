@@ -12,7 +12,7 @@
 public struct FlatCalibrationSweepProgress: Codable, Sendable, Hashable {
     /// The sweep this progress report is for.
     public let sweepId: String
-    /// The rig the sweep is running against.
+    /// The id of the rig the sweep is running against.
     public let rigId: String
     /// How many combinations have finished (successfully or not) so far.
     public let combinationsCompleted: Int
@@ -28,7 +28,7 @@ public struct FlatCalibrationSweepProgress: Codable, Sendable, Hashable {
     ///
     /// - Parameters:
     ///   - sweepId: The sweep this progress report is for.
-    ///   - rigId: The rig the sweep is running against.
+    ///   - rigId: The id of the rig the sweep is running against.
     ///   - combinationsCompleted: How many combinations have finished so far.
     ///   - totalCombinations: The total number of combinations this sweep will run.
     ///   - currentRunId: `nil` between combinations; the sweep's own `sweepId` while one is
