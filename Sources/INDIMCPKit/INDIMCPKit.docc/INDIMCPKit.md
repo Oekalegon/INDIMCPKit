@@ -38,6 +38,10 @@ generically through ``Script`` and the script-run lifecycle types.
 - ``ObservableDevice``
 - ``DeviceControlError``
 - ``FrameType``
+- ``INDIMCPClient/captureLightSequence(rigId:ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:locationId:)``
+- ``INDIMCPClient/captureDarkSequence(rigId:exposureSeconds:count:targetTempC:locationId:)``
+- ``INDIMCPClient/captureBiasSequence(rigId:count:exposureSeconds:locationId:)``
+- ``INDIMCPClient/captureFlatSequence(rigId:filterName:focusPosition:exposureSeconds:count:locationId:)``
 
 ### Rigs and observatories
 

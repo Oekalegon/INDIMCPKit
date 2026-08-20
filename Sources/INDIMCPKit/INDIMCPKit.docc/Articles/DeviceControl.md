@@ -45,6 +45,39 @@ try await filterWheel.selectFilter("Ha")
 try await focuser.setFocusPosition(15000)
 ```
 
+### Capture sequences
+
+Beyond a single ``Camera/captureFrame(exposureSeconds:frameType:binningX:binningY:gain:offset:frameX:frameY:frameWidth:frameHeight:locationId:)``
+exposure, INDIMCPKit wraps four composed, multi-step scripts that capture a whole sequence of
+frames in one call. Unlike the single-action commands above, these have no dedicated server-side
+tool of their own — they're reachable only through the generic script mechanism, so they're
+`INDIMCPClient` methods rather than being exposed on ``Camera`` directly:
+
+```swift
+let started = try await client.captureLightSequence(
+    rigId: "my-rig",
+    ra: 5.5, dec: 12.3,
+    filterName: "Ha",
+    focusPosition: 15000,
+    exposureSeconds: 300,
+    count: 20
+)
+```
+
+- ``INDIMCPClient/captureLightSequence(rigId:ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:locationId:)``
+  — the imaging-session entry point: slews to `ra`/`dec`, selects a filter, moves the focuser,
+  cools the camera, then captures `count` light frames.
+- ``INDIMCPClient/captureDarkSequence(rigId:exposureSeconds:count:targetTempC:locationId:)`` —
+  cools the camera and captures `count` dark frames at a matching exposure length.
+- ``INDIMCPClient/captureBiasSequence(rigId:count:exposureSeconds:locationId:)`` — captures
+  `count` bias frames back to back, shutter closed.
+- ``INDIMCPClient/captureFlatSequence(rigId:filterName:focusPosition:exposureSeconds:count:locationId:)``
+  — selects a filter and focus position, then captures `count` flat frames. For sweeping a whole
+  grid of flat/dark/bias settings in one run instead, see <doc:CalibrationSweeps>.
+
+Like every device command, each of these returns a ``ScriptRunStarted`` immediately — see
+<doc:Scripts> for following the run to completion.
+
 ## Every command returns a run, not a result
 
 Every device command returns a ``ScriptRunStarted`` — the underlying operation runs as a script on

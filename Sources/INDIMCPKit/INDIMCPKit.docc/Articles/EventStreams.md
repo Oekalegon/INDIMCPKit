@@ -28,7 +28,7 @@ iterating it or an error is thrown.
 
 ## Catching up after a reconnect
 
-Use ``INDIMCPClient/getEvents(stream:device:runId:since:)`` against the durable event log instead
+Use ``INDIMCPClient/getEvents(stream:device:runId:target:since:)`` against the durable event log instead
 — each ``EventRecord`` has a stable `id` to dedupe against, unlike the live streams' rolling
 windows. `EventRecord/decodedMessage()`, `EventRecord/decodedScriptStatus()`, and
 `EventRecord/decodedConnectionEvent()` decode a record's raw payload into ``IndiEvent``,
