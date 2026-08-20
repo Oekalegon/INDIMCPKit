@@ -59,6 +59,26 @@ extension INDIMCPClient {
     ///
     /// `gain`/`offset` omitted (the default) leave the device's current setting alone rather
     /// than sending a fixed number.
+    ///
+    /// - Parameters:
+    ///   - rigId: The `Rig` to run the sequence on, as saved via `saveRig`.
+    ///   - filterName: Name of the filter to select before capturing, matching one of the rig's
+    ///     configured filter-wheel slots.
+    ///   - focusPosition: Absolute focuser position to move to before capturing, in the
+    ///     focuser's native step units.
+    ///   - exposureSeconds: Exposure length for each flat frame, in seconds.
+    ///   - count: Number of flat frames to capture.
+    ///   - gain: Camera gain to apply to each frame, in the device's native units. Omit to leave
+    ///     the camera's current gain setting unchanged.
+    ///   - offset: Camera offset to apply to each frame, in the device's native units. Omit to
+    ///     leave the camera's current offset setting unchanged.
+    ///   - locationId: A saved `Observatory` identifying this sequence's celestial-context FITS
+    ///     headers, best-effort.
+    /// - Returns: A `ScriptRunStarted` acknowledging the newly started run, including whether
+    ///   it's `pausable`.
+    /// - Throws: `INDIMCPClientError.toolCallFailed` if `rigId` is unknown to the server or the
+    ///   server rejects the run (e.g. `filterName` doesn't match a configured slot), or another
+    ///   `INDIMCPClientError` case on a transport/connection failure.
     public func captureFlatSequence(
         rigId: String,
         filterName: String,
