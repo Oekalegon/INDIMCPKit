@@ -90,7 +90,7 @@ let started = try await client.captureLightSequence(
   cools the camera, then captures `count` light frames.
 - ``INDIMCPClient/captureDarkSequence(rigId:exposureSeconds:count:targetTempC:gain:offset:locationId:)`` —
   cools the camera and captures `count` dark frames at a matching exposure length.
-- ``INDIMCPClient/captureBiasSequence(rigId:count:exposureSeconds:locationId:)`` — captures
+- ``INDIMCPClient/captureBiasSequence(rigId:count:exposureSeconds:gain:offset:locationId:)`` — captures
   `count` bias frames back to back, shutter closed.
 - ``INDIMCPClient/captureFlatSequence(rigId:filterName:focusPosition:exposureSeconds:count:gain:offset:locationId:)``
   — selects a filter and focus position, then captures `count` flat frames. For sweeping a whole

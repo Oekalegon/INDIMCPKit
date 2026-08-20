@@ -77,7 +77,9 @@ struct INDICaptureSequencesIntegrationTests {
         )
 
         let bias = try await client.getScript(id: "capture_bias_sequence")
-        #expect(Set(bias.parameters.keys) == ["exposureSeconds", "count"])
+        #expect(
+            Set(bias.parameters.keys) == ["exposureSeconds", "count", "gain", "offset"]
+        )
 
         let flat = try await client.getScript(id: "capture_flat_sequence")
         #expect(

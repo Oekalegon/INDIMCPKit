@@ -40,7 +40,7 @@ generically through ``Script`` and the script-run lifecycle types.
 - ``FrameType``
 - ``INDIMCPClient/captureLightSequence(rigId:ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:gain:offset:locationId:)``
 - ``INDIMCPClient/captureDarkSequence(rigId:exposureSeconds:count:targetTempC:gain:offset:locationId:)``
-- ``INDIMCPClient/captureBiasSequence(rigId:count:exposureSeconds:locationId:)``
+- ``INDIMCPClient/captureBiasSequence(rigId:count:exposureSeconds:gain:offset:locationId:)``
 - ``INDIMCPClient/captureFlatSequence(rigId:filterName:focusPosition:exposureSeconds:count:gain:offset:locationId:)``
 
 ### Rigs and observatories
