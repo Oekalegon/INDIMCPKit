@@ -1,6 +1,9 @@
 import INDIMCPKit
 import SwiftUI
 
+/// Focuser control screen — owns the `Focuser` handle, its `CommandRunner`, and its
+/// `ObservableDevice` subscription directly (no separate model, unlike `CameraView`/`CameraModel`)
+/// since there's no derived state to track beyond what those two already publish.
 struct FocuserView: View {
     let focuser: Focuser
 

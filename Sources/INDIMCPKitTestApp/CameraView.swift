@@ -1,6 +1,10 @@
 import INDIMCPKit
 import SwiftUI
 
+/// Camera control screen — binds to `CameraModel`, which owns the `Camera` handle, `CommandRunner`,
+/// and the cooler-state tracking that isn't derivable from `ObservableDevice` alone (see
+/// `CameraModel`'s doc comment). Unlike `MountView`/`FocuserView`/`FilterWheelView`, which own their
+/// device handle and runner directly, this view needs that extra state, hence the model.
 struct CameraView: View {
     @State private var model: CameraModel
     @State private var targetTempC = "-10"

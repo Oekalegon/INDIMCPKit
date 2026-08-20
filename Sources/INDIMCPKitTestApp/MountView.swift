@@ -1,6 +1,9 @@
 import INDIMCPKit
 import SwiftUI
 
+/// Mount control screen — owns the `Mount` handle, its `CommandRunner`, and its `ObservableDevice`
+/// subscription directly (no separate model, unlike `CameraView`/`CameraModel`) since there's no
+/// derived state to track beyond what those two already publish.
 struct MountView: View {
     let mount: Mount
 
