@@ -135,6 +135,10 @@ public struct Camera: DeviceHandle {
 
     /// Selects `filterName`, moves the focuser to `focusPosition`, then captures `count` flat
     /// frames. See `INDIMCPClient.captureFlatSequence` for the full parameter set.
+    ///
+    /// Only the camera's connectivity is pre-checked here — a disconnected filter wheel or
+    /// focuser will still only surface as a script-run failure, not an upfront
+    /// `DeviceControlError`.
     public func captureFlatSequence(
         filterName: String,
         focusPosition: Int,
@@ -160,6 +164,10 @@ public struct Camera: DeviceHandle {
     /// Slews to `ra`/`dec`, selects `filterName`, moves the focuser to `focusPosition`, cools
     /// the camera to `targetTempC`, then captures `count` light frames. See
     /// `INDIMCPClient.captureLightSequence` for the full parameter set.
+    ///
+    /// Only the camera's connectivity is pre-checked here — a disconnected mount, filter wheel,
+    /// or focuser will still only surface as a script-run failure, not an upfront
+    /// `DeviceControlError`.
     public func captureLightSequence(
         ra: Double,
         dec: Double,
