@@ -57,6 +57,28 @@ extension INDIMCPClient {
         return downloaded
     }
 
+    /// Substitutes this client's own connection host for `url`'s host — used on a frame's
+    /// `downloadUrl` above.
+    ///
+    /// INDIMCP-server computes `downloadUrl` from its own `socket.gethostname()` (an mDNS
+    /// `.local` name, confirmed against the server's `_frame_download_url` doc comment), which
+    /// isn't reliably resolvable from every client's network — mDNS can be disabled, blocked
+    /// across subnets, or simply not configured — even though the exact same server is already
+    /// reachable at whatever host this client used to connect via MCP in the first place (`endpoint`).
+    /// Swapping in that already-proven-reachable host, while keeping `url`'s own scheme/port/path
+    /// exactly as the server returned them, sidesteps hostname-resolution failures entirely
+    /// without needing any server-side change. A no-op if the hosts already match.
+    func reachableURL(for url: URL) -> URL {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+            let endpointHost = endpoint.host,
+            components.host != endpointHost
+        else {
+            return url
+        }
+        components.host = endpointHost
+        return components.url ?? url
+    }
+
     private func download(from url: URL, to destination: URL, frameId: String) async throws {
         let (temporaryURL, response) = try await URLSession.shared.download(from: url)
         guard let httpResponse = response as? HTTPURLResponse, (200..<300).contains(httpResponse.statusCode) else {
