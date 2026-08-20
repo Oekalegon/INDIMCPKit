@@ -85,7 +85,10 @@ struct INDICaptureSequencesIntegrationTests {
         let light = try await client.getScript(id: "capture_light_sequence")
         #expect(
             Set(light.parameters.keys)
-                == ["ra", "dec", "objectName", "filterName", "focusPosition", "targetTempC", "exposureSeconds", "count"]
+                == [
+                    "ra", "dec", "objectName", "filterName", "focusPosition", "targetTempC",
+                    "exposureSeconds", "count", "gain", "offset",
+                ]
         )
 
         await client.disconnect()

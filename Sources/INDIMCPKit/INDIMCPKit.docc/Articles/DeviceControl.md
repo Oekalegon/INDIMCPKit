@@ -85,7 +85,7 @@ let started = try await client.captureLightSequence(
 )
 ```
 
-- ``INDIMCPClient/captureLightSequence(rigId:ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:locationId:)``
+- ``INDIMCPClient/captureLightSequence(rigId:ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:gain:offset:locationId:)``
   — the imaging-session entry point: slews to `ra`/`dec`, selects a filter, moves the focuser,
   cools the camera, then captures `count` light frames.
 - ``INDIMCPClient/captureDarkSequence(rigId:exposureSeconds:count:targetTempC:locationId:)`` —
