@@ -1,20 +1,31 @@
 import MCP
 
 extension INDIMCPClient {
-    /// Catches up on missed `indi://messages`/`indi://scripts` events from the durable event log,
-    /// oldest first.
+    /// Catches up on missed `indi://messages`/`indi://mcp-server` events from the durable event
+    /// log, oldest first.
     ///
-    /// Unlike the live `resources/subscribe` channel (`messageEvents`/`scriptEvents` below —
-    /// best-effort, live-only), this queries the server's durable SQLite log every event is also
-    /// written to, so a client that was disconnected can reliably fetch what it missed rather than
-    /// assuming the live subscription caught everything. Pass `since` as the `occurredAt` of the
-    /// last event you actually saw — the filter is inclusive (that same event comes back again
-    /// rather than being excluded), so dedupe by `id` if you call this repeatedly. Events older
-    /// than a day are purged server-side, so this isn't a substitute for permanent history.
+    /// Unlike the live `resources/subscribe` channel (`messageEvents`/`scriptEvents`/
+    /// `connectionEvents` below — best-effort, live-only), this queries the server's durable
+    /// SQLite log every event is also written to, so a client that was disconnected can reliably
+    /// fetch what it missed rather than assuming the live subscription caught everything. Pass
+    /// `since` as the `occurredAt` of the last event you actually saw — the filter is inclusive
+    /// (that same event comes back again rather than being excluded), so dedupe by `id` if you
+    /// call this repeatedly. Events older than a day are purged server-side, so this isn't a
+    /// substitute for permanent history.
+    ///
+    /// - Parameters:
+    ///   - stream: Which event-log stream to query.
+    ///   - device: Filters to events about this device — only meaningful for `.messages`.
+    ///   - runId: Filters to events for this script run — only meaningful for `.scripts`.
+    ///   - target: Filters to events about this connection target (`"server"`/`"indiserver"`/a
+    ///     driver label) — only meaningful for `.connection` (INDIMCP-57).
+    ///   - since: The `occurredAt` of the last event already seen; returns that event again plus
+    ///     everything after it.
     public func getEvents(
         stream: EventStream,
         device: String? = nil,
         runId: String? = nil,
+        target: String? = nil,
         since: String? = nil
     ) async throws -> [EventRecord] {
         var arguments: [String: Value] = ["stream": .string(stream.rawValue)]
@@ -23,6 +34,9 @@ extension INDIMCPClient {
         }
         if let runId {
             arguments["run_id"] = .string(runId)
+        }
+        if let target {
+            arguments["target"] = .string(target)
         }
         if let since {
             arguments["since"] = .string(since)
