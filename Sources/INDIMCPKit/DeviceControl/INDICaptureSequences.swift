@@ -113,6 +113,33 @@ extension INDIMCPClient {
     /// the camera to `targetTempC`, then captures `count` light frames.
     ///
     /// `objectName`, if given, is written verbatim to each frame's FITS `OBJECT` keyword.
+    /// `gain`/`offset` omitted (the default) leave the device's current setting alone rather
+    /// than sending a fixed number.
+    ///
+    /// - Parameters:
+    ///   - rigId: The `Rig` to run the sequence on, as saved via `saveRig`.
+    ///   - ra: Right ascension to slew to before capturing, in decimal hours.
+    ///   - dec: Declination to slew to before capturing, in decimal degrees.
+    ///   - filterName: Name of the filter to select before capturing, matching one of the rig's
+    ///     configured filter-wheel slots.
+    ///   - focusPosition: Absolute focuser position to move to before capturing, in the
+    ///     focuser's native step units.
+    ///   - exposureSeconds: Exposure length for each light frame, in seconds.
+    ///   - count: Number of light frames to capture.
+    ///   - objectName: Written verbatim to each frame's FITS `OBJECT` keyword, if given.
+    ///   - targetTempC: Sensor temperature to cool the camera to before capturing, in degrees
+    ///     Celsius.
+    ///   - gain: Camera gain to apply to each frame, in the device's native units. Omit to leave
+    ///     the camera's current gain setting unchanged.
+    ///   - offset: Camera offset to apply to each frame, in the device's native units. Omit to
+    ///     leave the camera's current offset setting unchanged.
+    ///   - locationId: A saved `Observatory` identifying this sequence's celestial-context FITS
+    ///     headers, best-effort.
+    /// - Returns: A `ScriptRunStarted` acknowledging the newly started run, including whether
+    ///   it's `pausable`.
+    /// - Throws: `INDIMCPClientError.toolCallFailed` if `rigId` is unknown to the server or the
+    ///   server rejects the run (e.g. `filterName` doesn't match a configured slot), or another
+    ///   `INDIMCPClientError` case on a transport/connection failure.
     public func captureLightSequence(
         rigId: String,
         ra: Double,
@@ -123,6 +150,8 @@ extension INDIMCPClient {
         count: Int,
         objectName: String? = nil,
         targetTempC: Double = -10,
+        gain: Double? = nil,
+        offset: Double? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
         var parameters: [String: Value] = [
@@ -136,6 +165,12 @@ extension INDIMCPClient {
         ]
         if let objectName {
             parameters["objectName"] = .string(objectName)
+        }
+        if let gain {
+            parameters["gain"] = .double(gain)
+        }
+        if let offset {
+            parameters["offset"] = .double(offset)
         }
         return try await runScript(
             scriptId: "capture_light_sequence",
