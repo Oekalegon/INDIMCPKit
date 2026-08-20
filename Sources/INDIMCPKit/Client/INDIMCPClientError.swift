@@ -40,6 +40,7 @@ public enum INDIMCPClientError: Error, Sendable {
 }
 
 extension INDIMCPClientError: CustomStringConvertible {
+    /// A human-readable description of the error.
     public var description: String {
         switch self {
         case .toolCallFailed(let tool, let message):

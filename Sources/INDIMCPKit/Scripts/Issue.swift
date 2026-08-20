@@ -6,13 +6,20 @@
 /// `role`/`device` identify who this is about, if anyone in particular — `nil` when an issue
 /// isn't about a single resolved role/device.
 public struct Issue: Codable, Sendable, Hashable {
+    /// A discriminator identifying this payload as an issue.
     public let kind: String
+    /// How serious this issue is.
     public let severity: Severity
+    /// A short, stable, machine-readable slug for this issue, e.g. `"filterConfigSynced"`.
     public let code: String
+    /// A human-readable description of the issue.
     public let message: String
+    /// The rig role this issue concerns, if it's about a single resolved role.
     public let role: String?
+    /// The INDI device this issue concerns, if it's about a single resolved device.
     public let device: String?
 
+    /// Creates a new issue.
     public init(
         kind: String,
         severity: Severity,

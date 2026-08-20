@@ -3,8 +3,11 @@
 /// Obtained via `INDIMCPClient.focuser(rigId:)`, not constructed directly. See `Mount`'s doc
 /// comment for the connectivity-check behavior shared by every device-type handle.
 public struct Focuser: DeviceHandle {
+    /// The MCP client this device handle was obtained from.
     public let client: INDIMCPClient
+    /// The id of the rig this device handle belongs to.
     public let rigId: String
+    /// The role this device handle plays within its rig.
     public let role: Role = .focuser
 
     init(client: INDIMCPClient, rigId: String) {

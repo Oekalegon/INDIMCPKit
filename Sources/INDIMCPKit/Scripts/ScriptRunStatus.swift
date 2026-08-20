@@ -7,13 +7,21 @@
 /// comment) — decoding here picks the matching case from the `kind` tag the same way `Tool.Content`
 /// in the MCP SDK itself decodes its own tagged union.
 public enum ScriptRunStatus: Sendable, Hashable {
+    /// The run has just been started.
     case started(ScriptRunStarted)
+    /// The run is in progress.
     case progress(ScriptRunProgress)
+    /// The run finished successfully.
     case completed(ScriptRunCompleted)
+    /// The run finished with an error.
     case failed(ScriptRunFailed)
+    /// The run was cancelled.
     case cancelled(ScriptRunCancelled)
+    /// The run is paused.
     case paused(ScriptRunPaused)
+    /// The run was resumed after being paused.
     case resumed(ScriptRunResumed)
+    /// A pause (or resume) request for this run was rejected.
     case pauseRejected(ScriptRunPauseRejected)
 
     /// Whether this status is a final outcome for the run — no further `getScriptStatus` call
@@ -33,6 +41,7 @@ extension ScriptRunStatus: Codable {
         case kind
     }
 
+    /// Decodes a script run status, dispatching on its `kind` tag.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let kind = try container.decode(String.self, forKey: .kind)
@@ -62,6 +71,7 @@ extension ScriptRunStatus: Codable {
         }
     }
 
+    /// Encodes this script run status, tagged with its `kind`.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {

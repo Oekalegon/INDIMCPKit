@@ -13,6 +13,7 @@ public enum DeviceControlError: Error, Sendable {
 }
 
 extension DeviceControlError: CustomStringConvertible {
+    /// A human-readable description of the error.
     public var description: String {
         switch self {
         case .noComponentForRole(let role, let rigId):

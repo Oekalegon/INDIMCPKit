@@ -4,7 +4,9 @@
 /// (`server.py`) — decoded via the same `kind`-tag dispatch as `ScriptRunStatus`, just over a
 /// smaller set of cases.
 public enum PauseOutcome: Sendable, Hashable {
+    /// The run was paused.
     case paused(ScriptRunPaused)
+    /// The run couldn't be paused.
     case rejected(ScriptRunPauseRejected)
 }
 
@@ -13,6 +15,7 @@ extension PauseOutcome: Codable {
         case kind
     }
 
+    /// Decodes a pause outcome, dispatching on its `kind` tag.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let kind = try container.decode(String.self, forKey: .kind)
@@ -30,6 +33,7 @@ extension PauseOutcome: Codable {
         }
     }
 
+    /// Encodes this pause outcome, tagged with its `kind`.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {

@@ -23,6 +23,7 @@ import Observation
 @MainActor
 @Observable
 public final class ObservableMessageStream {
+    /// The client used to subscribe to and unsubscribe from `indi://messages`.
     public let client: INDIMCPClient
 
     /// The current rolling window of recent messaging events, newest first — exactly what the
@@ -57,6 +58,8 @@ public final class ObservableMessageStream {
     // properties. Call `stop()` explicitly before discarding an instance if the subscription
     // needs to end deterministically rather than opportunistically.
 
+    /// Creates a new observable message stream, not yet subscribed — call `start(device:)` to
+    /// begin receiving events.
     public init(client: INDIMCPClient) {
         self.client = client
     }

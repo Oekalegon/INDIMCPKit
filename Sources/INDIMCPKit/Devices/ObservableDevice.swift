@@ -21,8 +21,11 @@ import Observation
 @MainActor
 @Observable
 public final class ObservableDevice: DeviceHandle {
+    /// The MCP client this device handle was obtained from.
     public let client: INDIMCPClient
+    /// The id of the rig this device handle belongs to.
     public let rigId: String
+    /// The role this device handle plays within its rig.
     public let role: Role
 
     /// The rig component's INDI device name for `role`, resolved on `start()` — `nil` until then,
@@ -60,6 +63,8 @@ public final class ObservableDevice: DeviceHandle {
     // `self` itself. Call `stop()` explicitly before discarding an instance if you need the
     // subscription/resync to end deterministically rather than opportunistically.
 
+    /// Creates a handle for rig `rigId`'s `role` component. Call `start()` to begin tracking its
+    /// state.
     public init(client: INDIMCPClient, rigId: String, role: Role) {
         self.client = client
         self.rigId = rigId

@@ -9,8 +9,11 @@
 /// `INDIMCPClientError` (not just `DeviceControlError`) if `startINDIMessaging()` hasn't been
 /// called yet — see `ensureConnected`'s doc comment.
 public struct Mount: DeviceHandle {
+    /// The MCP client this device handle was obtained from.
     public let client: INDIMCPClient
+    /// The id of the rig this device handle belongs to.
     public let rigId: String
+    /// The role this device handle plays within its rig.
     public let role: Role = .mount
 
     init(client: INDIMCPClient, rigId: String) {
