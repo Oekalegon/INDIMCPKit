@@ -74,7 +74,7 @@ extension INDIMCPClient {
     ///     leave the camera's current offset setting unchanged.
     ///   - locationId: A saved `Observatory` identifying this sequence's celestial-context FITS
     ///     headers, best-effort.
-    /// - Returns: A ``ScriptRunStarted`` acknowledging the newly started run, including whether
+    /// - Returns: A `ScriptRunStarted` acknowledging the newly started run, including whether
     ///   it's `pausable`.
     /// - Throws: `INDIMCPClientError.toolCallFailed` if `rigId` is unknown to the server or the
     ///   server rejects the run (e.g. `filterName` doesn't match a configured slot), or another
