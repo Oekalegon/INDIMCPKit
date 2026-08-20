@@ -39,7 +39,7 @@ generically through ``Script`` and the script-run lifecycle types.
 - ``DeviceControlError``
 - ``FrameType``
 - ``INDIMCPClient/captureLightSequence(rigId:ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:gain:offset:locationId:)``
-- ``INDIMCPClient/captureDarkSequence(rigId:exposureSeconds:count:targetTempC:locationId:)``
+- ``INDIMCPClient/captureDarkSequence(rigId:exposureSeconds:count:targetTempC:gain:offset:locationId:)``
 - ``INDIMCPClient/captureBiasSequence(rigId:count:exposureSeconds:locationId:)``
 - ``INDIMCPClient/captureFlatSequence(rigId:filterName:focusPosition:exposureSeconds:count:gain:offset:locationId:)``
 
