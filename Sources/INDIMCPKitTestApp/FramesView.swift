@@ -2,6 +2,8 @@ import Foundation
 import INDIMCPKit
 import SwiftUI
 
+/// Lists frames captured on the server and lets the operator download each one — binds to
+/// `FramesModel` for the frame list and each row's independent download state.
 struct FramesView: View {
     @State private var model: FramesModel
 
@@ -42,6 +44,8 @@ struct FramesView: View {
     }
 }
 
+/// One row in `FramesView`'s list — shows server-reported issues (`issuesLabels`) about the frame
+/// itself separately from `statusLabel`, this app's own download/confirm outcome for it.
 private struct FrameRow: View {
     let frame: FrameMetadataResponse
     let state: FramesModel.DownloadState

@@ -1,6 +1,10 @@
 import INDIMCPKit
 import SwiftUI
 
+/// Filter wheel control screen — owns the `FilterWheel` handle, its `CommandRunner`, and its
+/// `ObservableDevice` subscription directly (no separate model, unlike `CameraView`/`CameraModel`)
+/// since its own state (just `isConnected`) is a single value refreshed after each command, not
+/// the multi-step cooler-state coordination `CameraModel` exists for.
 struct FilterWheelView: View {
     let filterWheel: FilterWheel
 
