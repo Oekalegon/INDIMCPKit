@@ -12,7 +12,12 @@ through a rig — `client.mount(rigId:)`, not by device name directly.
 ```swift
 let rigs = try await client.listRigs()
 let rig = try await client.getRig(id: "my-rig")
+try await client.saveRig(rig, overwrite: true)
 ```
+
+``INDIMCPClient/saveRig(_:overwrite:)`` writes a rig definition to `rigs/<rig.id>.yaml` on the
+server and reloads it — refuses to replace an existing file unless `overwrite` is set, since
+reusing an `id` could otherwise silently destroy a previously saved rig.
 
 ### Reconciling a rig with live hardware
 
@@ -36,6 +41,18 @@ All of these require INDI messaging to be running (`INDIMCPClient.startINDIMessa
 
 An ``Observatory`` is a saved location (latitude/longitude/elevation) that can be attached to a
 script run via `runScript(locationId:)` — currently consumed by `capture_frame`'s celestial-context
-FITS headers. ``INDIMCPClient/draftObservatory()`` pre-fills an ``ObservatoryDraft`` from a
+FITS headers.
+
+```swift
+let locations = try await client.listObservatories()
+let location = try await client.getObservatory(id: "home-observatory")
+try await client.saveObservatory(location, overwrite: true)
+```
+
+``INDIMCPClient/listObservatories()`` and ``INDIMCPClient/getObservatory(id:)`` list and fetch
+saved locations, the same list/get shape as rigs and scripts.
+``INDIMCPClient/saveObservatory(_:overwrite:)`` writes one to
+`observatories/<observatory.id>.yaml` on the server — same overwrite-guard as `saveRig`.
+``INDIMCPClient/draftObservatory()`` pre-fills an ``ObservatoryDraft`` from a
 connected GPS/location-capable INDI device, the same "draft, never auto-save" pattern as
 ``INDIMCPClient/draftRig()``.

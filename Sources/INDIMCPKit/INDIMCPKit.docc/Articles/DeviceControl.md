@@ -25,6 +25,8 @@ hasn't been started yet.
 try await mount.unpark()
 try await mount.slew(ra: 5.5, dec: 12.3)
 try await mount.setTrackMode("Sidereal")
+try await mount.setCustomTrackingRate(raRateArcsecPerSec: 15.0, decRateArcsecPerSec: 0)
+try await mount.trackOff()
 ```
 
 ### Camera
@@ -32,6 +34,7 @@ try await mount.setTrackMode("Sidereal")
 ```swift
 try await camera.coolCamera(targetTempC: -10)
 let started = try await camera.captureFrame(exposureSeconds: 30, frameType: .light)
+try await camera.coolerOff()
 ```
 
 `isCoolerOn()` reports the cooler state from the most recently observed live event — see its doc
@@ -44,6 +47,24 @@ comment for the staleness caveat inherent to any state derived from
 try await filterWheel.selectFilter("Ha")
 try await focuser.setFocusPosition(15000)
 ```
+
+### Connecting and disconnecting a device
+
+Device handles run a best-effort connectivity check before every command (see above), but a
+caller can also drive or inspect connection state directly:
+
+```swift
+try await client.connectDevice(rigId: "my-rig", role: "camera")
+let connected = try await client.isDeviceConnected(role: .camera, rigId: "my-rig")
+try await client.disconnectDevice(rigId: "my-rig", role: "camera")
+```
+
+``INDIMCPClient/connectDevice(rigId:role:)`` and ``INDIMCPClient/disconnectDevice(rigId:role:)``
+are named that way — not `connect`/`disconnect` — specifically to avoid colliding with
+``INDIMCPClient/connect()``/``INDIMCPClient/disconnect()``, which manage the MCP session itself, a
+wholly different connection. ``INDIMCPClient/isDeviceConnected(role:rigId:)`` runs the same
+best-effort check the device handles use internally, exposed as its own call for UI that wants to
+reflect connection state up front rather than only discovering it from a failed command.
 
 ### Capture sequences
 

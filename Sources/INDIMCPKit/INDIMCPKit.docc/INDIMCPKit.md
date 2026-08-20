@@ -122,6 +122,7 @@ generically through ``Script`` and the script-run lifecycle types.
 
 ### Live messaging and properties
 
+- <doc:Messaging>
 - ``DeviceProperty``
 - ``DeviceProperties``
 - ``IndiEvent``

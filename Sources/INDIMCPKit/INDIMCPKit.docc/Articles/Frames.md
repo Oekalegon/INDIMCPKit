@@ -13,6 +13,9 @@ confirmed received, `false` for ones still waiting to be downloaded.
 let pending = try await client.listFrames(transferred: false)
 ```
 
+``INDIMCPClient/getFrameMetadata(frameId:)`` looks up a single frame's metadata directly when you
+already have its `frameId` rather than filtering a full `listFrames` result.
+
 ## Downloading and confirming
 
 `downloadFrame` streams a frame's raw bytes straight to a local file via the server's
@@ -20,6 +23,11 @@ let pending = try await client.listFrames(transferred: false)
 downloaded bytes, call ``INDIMCPClient/confirmFrameTransfer(frameId:)`` — this is what makes a
 frame eligible for later deletion, so only confirm a transfer that actually completed
 successfully; confirming prematurely risks the server treating its only copy as safe to delete.
+
+``INDIMCPClient/downloadAllFrames(runId:to:)`` composes `listFrames(runId:)` with a `downloadFrame`
+per frame for the common "give me every frame from this run" case — not atomic across frames, so a
+failure partway through can leave some frames downloaded and others not; call `listFrames(runId:)`
+again afterward to see what actually landed.
 
 ``ChecksumVerification`` is how that verification is done: it streams the downloaded file back
 through SHA-256 and compares it against the server-reported `checksumSha256`, falling back to a

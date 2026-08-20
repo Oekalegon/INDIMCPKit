@@ -48,3 +48,16 @@ INDIMCPKit models the standard tool surface only, not any particular server inst
 scripts — those are site-specific. It still supports listing, saving, and running them generically
 through ``Script`` and ``ScriptSummary``, working with each script's own declared ``Parameter``s
 at runtime rather than a per-script typed Swift wrapper.
+
+```swift
+let scripts = try await client.listScripts()
+let script = try await client.getScript(id: "my-script")
+try await client.saveScript(script, overwrite: true)
+```
+
+``INDIMCPClient/listScripts()`` lists every loaded script, built-in and uploaded alike.
+``INDIMCPClient/saveScript(_:overwrite:)`` uploads a script to `user_scripts/<script.id>.yaml` —
+a separate directory from the built-ins, so an upload can never clobber or shadow one. The server
+validates only declarative step data (no executable code), and rejects a script outright if it
+doesn't fit the rest of the library — an unresolved `run_script` reference, a mismatched argument
+type, a call cycle, or an `id` already used by a built-in script.

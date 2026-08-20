@@ -38,3 +38,18 @@ and ``INDIMCPClient/stopINDIDriver(label:)`` control a driver by its catalog lab
 
 Once a driver is running and connected, it still needs to be mapped to a role in a saved rig
 before device handles like ``Mount`` or ``Camera`` can reach it — see <doc:RigsAndObservatories>.
+
+### Version alignment
+
+```swift
+let info = try await client.getServerInfo()
+if info.version != alignedINDIMCPServerVersion {
+    // This kit's tool definitions were last verified against a different server version.
+}
+```
+
+``INDIMCPClient/getServerInfo()`` reports the connected server's package version and last-merge
+build timestamp (``ServerInfo``). Compare its `version` against ``alignedINDIMCPServerVersion`` to
+detect drift between the server this kit's tool definitions were verified against and the one
+it's actually talking to — a coarse signal, since the server's `version` is bumped by hand on
+releases and can lag behind ongoing `develop` work on either side.
