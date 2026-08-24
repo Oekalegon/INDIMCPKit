@@ -52,8 +52,13 @@ extension INDIMCPClient {
     /// implementation supports one.
     ///
     /// Uses `callToolUnion`, not `callTool`: `indi_property`'s declared return type,
-    /// `DeviceProperties | IndiEvent`, is a `Union` FastMCP wraps as `{"result": ...}` — confirmed
-    /// against a real server, this failed to decode as plain `callTool` (IMCPKIT-61).
+    /// `DeviceProperties | IndiEvent`, is a `Union` FastMCP wraps as `{"result": ...}` (IMCPKIT-61)
+    /// — the same wrapping already confirmed live for `manage_indi_infra`/`get_indi_status`/
+    /// `configuration`/`rig_diagnostics`. This one call's own success path isn't independently
+    /// exercised live in this dev environment (no connected driver to query — see
+    /// `INDIMessagingIntegrationTests`, which only reaches `getDeviceProperties`'s error path), but
+    /// FastMCP's `Union` wrapping doesn't depend on which concrete type ends up inside it, so the
+    /// same fix applies.
     public func getDeviceProperties(device: String) async throws -> DeviceProperties {
         try await callToolUnion(
             "indi_property",
