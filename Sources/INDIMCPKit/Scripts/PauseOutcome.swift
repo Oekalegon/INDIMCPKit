@@ -1,8 +1,9 @@
 /// The result of a `pauseScript` call.
 ///
 /// Mirrors INDIMCP-server's `pause_script` return type, `ScriptRunPaused | ScriptRunPauseRejected`
-/// (`server.py`) — decoded via the same `kind`-tag dispatch as `ScriptRunStatus`, just over a
-/// smaller set of cases.
+/// (`server.py`) — `manage_script_run`'s `action: "pause"` branch calls this same underlying
+/// function; it isn't a standalone tool any more (INDIMCP-117). Decoded via the same `kind`-tag
+/// dispatch as `ScriptRunStatus`, just over a smaller set of cases.
 public enum PauseOutcome: Sendable, Hashable {
     /// The run was paused.
     case paused(ScriptRunPaused)

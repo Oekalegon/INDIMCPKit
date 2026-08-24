@@ -32,13 +32,24 @@ extension INDIMCPClient {
         return try await callTool("run_script", arguments: arguments, decoding: ScriptRunStarted.self)
     }
 
+    /// `manage_script_run(run_id, action)`, shared by every method below — replaces the old
+    /// dedicated `get_script_status`/`cancel_script`/`pause_script`/`resume_script` tools
+    /// (INDIMCP-117).
+    private func manageScriptRun<Output: Decodable & Sendable>(
+        runId: String,
+        action: String,
+        decoding type: Output.Type
+    ) async throws -> Output {
+        try await callToolUnion(
+            "manage_script_run",
+            arguments: ["run_id": .string(runId), "action": .string(action)],
+            decoding: Output.self
+        )
+    }
+
     /// Returns the most recently known status for a run started by `runScript`.
     public func getScriptStatus(runId: String) async throws -> ScriptRunStatus {
-        try await callToolUnion(
-            "get_script_status",
-            arguments: ["run_id": .string(runId)],
-            decoding: ScriptRunStatus.self
-        )
+        try await manageScriptRun(runId: runId, action: "status", decoding: ScriptRunStatus.self)
     }
 
     /// Cancels a run started by `runScript`, waiting for it to actually stop.
@@ -49,29 +60,17 @@ extension INDIMCPClient {
     /// Callers needing a bounded wait should race this against their own timeout, e.g. via a
     /// child `Task` cancelled after a deadline.
     public func cancelScript(runId: String) async throws -> ScriptRunStatus {
-        try await callToolUnion(
-            "cancel_script",
-            arguments: ["run_id": .string(runId)],
-            decoding: ScriptRunStatus.self
-        )
+        try await manageScriptRun(runId: runId, action: "cancel", decoding: ScriptRunStatus.self)
     }
 
     /// Pauses a run at its next safe point — only if its script declared itself `pausable`.
     public func pauseScript(runId: String) async throws -> PauseOutcome {
-        try await callToolUnion(
-            "pause_script",
-            arguments: ["run_id": .string(runId)],
-            decoding: PauseOutcome.self
-        )
+        try await manageScriptRun(runId: runId, action: "pause", decoding: PauseOutcome.self)
     }
 
     /// Resumes a run previously paused with `pauseScript`.
     public func resumeScript(runId: String) async throws -> ResumeOutcome {
-        try await callToolUnion(
-            "resume_script",
-            arguments: ["run_id": .string(runId)],
-            decoding: ResumeOutcome.self
-        )
+        try await manageScriptRun(runId: runId, action: "resume", decoding: ResumeOutcome.self)
     }
 
     /// Polls `getScriptStatus(runId:)` at `pollInterval` until it reaches a terminal status
