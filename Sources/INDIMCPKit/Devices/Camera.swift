@@ -38,6 +38,13 @@ public struct Camera: DeviceHandle {
     /// no `device` name resolved, the device has never reported `CCD_COOLER` at all, or the
     /// server has never seen the device — e.g. before INDI messaging has connected to it).
     ///
+    /// `nil` here specifically means "can't currently tell," not "confirmed off" — it also covers
+    /// any other failure from the underlying `getDeviceProperties` call (a transport/protocol
+    /// error, INDI messaging not having been started, etc.), which this swallows rather than
+    /// throws, matching this method's existing UI-oriented, best-effort contract. Callers that
+    /// need to distinguish "not yet known" from "something's actually broken" should call
+    /// `getDeviceProperties(device:)` themselves instead of relying on this.
+    ///
     /// UI-oriented, not authoritative: reflects whatever `getDeviceProperties` currently reports,
     /// same caveat `INDIMCPClient.isDeviceConnected` carries. Was previously derived from the most
     /// recently observed `CCD_COOLER` event via `listINDIMessages`, which INDIMCP-114 removed with
