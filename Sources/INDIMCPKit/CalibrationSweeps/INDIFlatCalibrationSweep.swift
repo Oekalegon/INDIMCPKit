@@ -48,26 +48,23 @@ extension INDIMCPClient {
         count: Int,
         locationId: String? = nil
     ) async throws -> FlatCalibrationSweepStarted {
-        // Argument keys mirror INDIMCP-server's run_flat_calibration_sweep parameter names
-        // exactly, including its inconsistent snake_case/camelCase mix (rig_id/location_id vs.
+        // Argument keys mirror INDIMCP-server's run_calibration_sweep parameter names exactly,
+        // including its inconsistent snake_case/camelCase mix (rig_id/location_id vs.
         // gains/offsets/exposureSecondsList/filterName/focusPosition/count) — not a typo, don't
         // "fix" the casing to match this file's other calls or the server won't recognize the
         // argument. Same convention as runSensorCalibrationSweep.
-        var arguments: [String: Value] = [
-            "rig_id": .string(rigId),
-            "gains": .array(gains.map { .double($0) }),
-            "offsets": .array(offsets.map { .double($0) }),
-            "exposureSecondsList": .array(exposureSecondsList.map { .double($0) }),
-            "filterName": .string(filterName),
-            "focusPosition": .int(focusPosition),
-            "count": .int(count),
-        ]
-        if let locationId {
-            arguments["location_id"] = .string(locationId)
-        }
-        return try await callTool(
-            "run_flat_calibration_sweep",
-            arguments: arguments,
+        try await runCalibrationSweepTool(
+            kind: "flat",
+            rigId: rigId,
+            extra: [
+                "gains": .array(gains.map { .double($0) }),
+                "offsets": .array(offsets.map { .double($0) }),
+                "exposureSecondsList": .array(exposureSecondsList.map { .double($0) }),
+                "filterName": .string(filterName),
+                "focusPosition": .int(focusPosition),
+                "count": .int(count),
+            ],
+            locationId: locationId,
             decoding: FlatCalibrationSweepStarted.self
         )
     }
@@ -80,9 +77,9 @@ extension INDIMCPClient {
     /// - Throws: `INDIMCPClientError.toolCallFailed` if `sweepId` is unknown to the server (never
     ///   started, or evicted after enough other sweeps finished since).
     public func getFlatCalibrationSweepStatus(sweepId: String) async throws -> FlatCalibrationSweepStatus {
-        try await callToolUnion(
-            "get_flat_calibration_sweep_status",
-            arguments: ["sweep_id": .string(sweepId)],
+        try await manageCalibrationSweepTool(
+            sweepId: sweepId,
+            action: "status",
             decoding: FlatCalibrationSweepStatus.self
         )
     }
@@ -103,9 +100,9 @@ extension INDIMCPClient {
     ///   failed) if cancellation lost that race.
     /// - Throws: `INDIMCPClientError.toolCallFailed` if `sweepId` is unknown to the server.
     public func cancelFlatCalibrationSweep(sweepId: String) async throws -> FlatCalibrationSweepStatus {
-        try await callToolUnion(
-            "cancel_flat_calibration_sweep",
-            arguments: ["sweep_id": .string(sweepId)],
+        try await manageCalibrationSweepTool(
+            sweepId: sweepId,
+            action: "cancel",
             decoding: FlatCalibrationSweepStatus.self
         )
     }
