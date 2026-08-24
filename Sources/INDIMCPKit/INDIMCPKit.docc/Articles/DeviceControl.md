@@ -34,6 +34,7 @@ try await mount.trackOff()
 ```swift
 try await camera.coolCamera(targetTempC: -10)
 let started = try await camera.captureFrame(exposureSeconds: 30, frameType: .light)
+try await camera.abortExposure()
 try await camera.coolerOff()
 ```
 
