@@ -33,7 +33,8 @@ public struct Camera: DeviceHandle {
         return try await client.coolerOff(rigId: rigId)
     }
 
-    /// Aborts the camera's currently in-progress exposure, if any.
+    /// Aborts the camera's currently in-progress exposure, if any. See
+    /// `INDIMCPClient.abortExposure(rigId:)` for the no-exposure-running caveat.
     public func abortExposure() async throws -> ScriptRunStarted {
         try await client.ensureConnected(role: .camera, rigId: rigId)
         return try await client.abortExposure(rigId: rigId)

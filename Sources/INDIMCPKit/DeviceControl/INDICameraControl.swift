@@ -35,6 +35,11 @@ extension INDIMCPClient {
 
     /// Aborts the rig's camera's currently in-progress exposure, if any.
     ///
+    /// Unconditionally sends `CCD_ABORT_EXPOSURE` and waits for the driver to confirm it,
+    /// regardless of whether an exposure is actually in progress — most drivers accept this as a
+    /// harmless no-op when idle, but that's driver convention, not something INDI's own protocol
+    /// guarantees.
+    ///
     /// New capability (INDIMCP-116) — there was no server-side tool for this at all before
     /// `camera_action` gained it as a new action.
     public func abortExposure(rigId: String) async throws -> ScriptRunStarted {
