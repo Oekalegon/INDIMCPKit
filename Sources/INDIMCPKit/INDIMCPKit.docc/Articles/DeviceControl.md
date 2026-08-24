@@ -37,9 +37,9 @@ let started = try await camera.captureFrame(exposureSeconds: 30, frameType: .lig
 try await camera.coolerOff()
 ```
 
-`isCoolerOn()` reports the cooler state from the most recently observed live event — see its doc
-comment for the staleness caveat inherent to any state derived from
-``INDIMCPClient/listINDIMessages(device:limit:)``.
+`isCoolerOn()` reports the cooler state read directly from the device's live `CCD_COOLER`
+property — see its doc comment for the staleness caveat inherent to any state derived from
+``INDIMCPClient/getDeviceProperties(device:)``.
 
 ### Filter wheel and focuser
 

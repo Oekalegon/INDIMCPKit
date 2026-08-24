@@ -7,29 +7,33 @@ extension INDIMCPClient {
         port: Int = defaultINDIServerPort
     ) async throws -> MessagingStatus {
         try await callTool(
-            "start_indi_messaging",
-            arguments: ["host": .string(host), "port": .int(port)],
+            "manage_indi_infra",
+            arguments: [
+                "component": .string("messaging"),
+                "action": .string("start"),
+                "host": .string(host),
+                "port": .int(port),
+            ],
             decoding: MessagingStatus.self
         )
     }
 
     /// Disconnects from the INDI server and stops streaming its events.
     public func stopINDIMessaging() async throws -> MessagingStatus {
-        try await callTool("stop_indi_messaging", decoding: MessagingStatus.self)
+        try await callTool(
+            "manage_indi_infra",
+            arguments: ["component": .string("messaging"), "action": .string("stop")],
+            decoding: MessagingStatus.self
+        )
     }
 
     /// Reports whether the INDI messaging stream is running, and its host/port.
     public func getINDIMessagingStatus() async throws -> MessagingStatus {
-        try await callTool("get_indi_messaging_status", decoding: MessagingStatus.self)
-    }
-
-    /// Lists the most recently seen INDI events, newest first, optionally filtered to one device.
-    public func listINDIMessages(device: String? = nil, limit: Int = 50) async throws -> [IndiEvent] {
-        var arguments: [String: Value] = ["limit": .int(limit)]
-        if let device {
-            arguments["device"] = .string(device)
-        }
-        return try await callToolList("list_indi_messages", arguments: arguments, decoding: IndiEvent.self)
+        try await callTool(
+            "get_indi_status",
+            arguments: ["component": .string("messaging")],
+            decoding: MessagingStatus.self
+        )
     }
 
     /// Queries the INDI server for the live state of every property on `device`.
@@ -37,13 +41,13 @@ extension INDIMCPClient {
     /// Queries `indiserver` directly (`getProperties`) rather than returning whatever was last
     /// cached, so the result reflects the device's actual state at call time when possible —
     /// check the returned `refreshed` flag, which is `false` if the driver didn't respond in
-    /// time and `properties` fell back to a previously-cached reading. The MCP tool itself
-    /// exposes no timeout parameter (only `device`), even though the server's own internal
+    /// time and `properties` fell back to a previously-cached reading. The `indi_property` tool
+    /// itself exposes no timeout parameter (only `device`), even though the server's own internal
     /// implementation supports one.
     public func getDeviceProperties(device: String) async throws -> DeviceProperties {
         try await callTool(
-            "get_device_properties",
-            arguments: ["device": .string(device)],
+            "indi_property",
+            arguments: ["action": .string("get"), "device": .string(device)],
             decoding: DeviceProperties.self
         )
     }
@@ -60,8 +64,9 @@ extension INDIMCPClient {
         elements: [String: String]
     ) async throws -> IndiEvent {
         try await callTool(
-            "send_indi_property",
+            "indi_property",
             arguments: [
+                "action": .string("set"),
                 "device": .string(device),
                 "name": .string(name),
                 "elements": .object(elements.mapValues(Value.string)),

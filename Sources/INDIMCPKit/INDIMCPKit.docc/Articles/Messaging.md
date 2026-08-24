@@ -23,14 +23,11 @@ disconnects it.
 
 ## Reading device state directly
 
-``INDIMCPClient/listINDIMessages(device:limit:)`` lists the most recently seen INDI events, newest
-first — this is what device handles like ``Camera/isCoolerOn()`` derive their state from, and
-carries the same staleness caveat: it's only as fresh as the last streamed event.
-
 ``INDIMCPClient/getDeviceProperties(device:)`` queries `indiserver` directly for a device's full
 live property state (``DeviceProperties``) rather than returning a cached reading — check the
 returned `refreshed` flag, which is `false` if the driver didn't respond in time and the result
-fell back to a cached snapshot instead.
+fell back to a cached snapshot instead. This is what device handles like ``Camera/isCoolerOn()``
+read their state from directly.
 
 ## Sending raw property commands
 
