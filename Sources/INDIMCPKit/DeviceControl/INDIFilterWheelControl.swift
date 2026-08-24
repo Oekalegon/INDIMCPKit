@@ -9,8 +9,12 @@ extension INDIMCPClient {
     /// explicitly.
     public func selectFilter(rigId: String, filterName: String) async throws -> ScriptRunStarted {
         try await callTool(
-            "select_filter",
-            arguments: ["rig_id": .string(rigId), "filterName": .string(filterName)],
+            "filter_wheel_action",
+            arguments: [
+                "rig_id": .string(rigId),
+                "action": .string("select"),
+                "filterName": .string(filterName),
+            ],
             decoding: ScriptRunStarted.self
         )
     }

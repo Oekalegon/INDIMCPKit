@@ -7,8 +7,12 @@ extension INDIMCPClient {
     /// declared.
     public func setFocusPosition(rigId: String, position: Int) async throws -> ScriptRunStarted {
         try await callTool(
-            "set_focus_position",
-            arguments: ["rig_id": .string(rigId), "position": .int(position)],
+            "focuser_action",
+            arguments: [
+                "rig_id": .string(rigId),
+                "action": .string("set_position"),
+                "position": .int(position),
+            ],
             decoding: ScriptRunStarted.self
         )
     }

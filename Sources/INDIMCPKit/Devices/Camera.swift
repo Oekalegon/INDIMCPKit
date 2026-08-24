@@ -33,6 +33,12 @@ public struct Camera: DeviceHandle {
         return try await client.coolerOff(rigId: rigId)
     }
 
+    /// Aborts the camera's currently in-progress exposure, if any.
+    public func abortExposure() async throws -> ScriptRunStarted {
+        try await client.ensureConnected(role: .camera, rigId: rigId)
+        return try await client.abortExposure(rigId: rigId)
+    }
+
     /// Whether the cooler is currently on, read directly from this rig's camera device's live
     /// `CCD_COOLER` property — `nil` if that can't be determined (this rig's camera component has
     /// no `device` name resolved, the device has never reported `CCD_COOLER` at all, or the
