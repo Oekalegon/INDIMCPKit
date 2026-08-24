@@ -16,7 +16,7 @@ import Testing
 /// really parks a mount or captures a frame — what's being verified is that each wrapper calls
 /// the right underlying tool with the right arguments: `runScript(scriptId:rigId:)` reports back
 /// the correct `script` id and the `rigId` this suite passed in has round-tripped correctly, for
-/// every one of these fourteen thin wrappers. A wrong tool name (e.g. a typo routing `unpark` to
+/// every one of these fifteen thin wrappers. A wrong tool name (e.g. a typo routing `unpark` to
 /// the `"park"` script) would be caught here even though neither actually reaches real hardware.
 ///
 /// Known limitation: since no run here ever reaches the point where the script engine actually
@@ -68,6 +68,7 @@ struct INDIDeviceControlIntegrationTests {
         assertStarted("cool_camera", try await client.coolCamera(rigId: rig.id))
         assertStarted("cooler_on", try await client.coolerOn(rigId: rig.id))
         assertStarted("cooler_off", try await client.coolerOff(rigId: rig.id))
+        assertStarted("abort_exposure", try await client.abortExposure(rigId: rig.id))
         assertStarted("capture_frame", try await client.captureFrame(rigId: rig.id, exposureSeconds: 1))
 
         assertStarted("select_filter", try await client.selectFilter(rigId: rig.id, filterName: "Ha"))
