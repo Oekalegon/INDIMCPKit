@@ -19,10 +19,10 @@ INDIMCPKit models the **standard, built-in tools** that ship with INDIMCP-server
 itself). It deliberately does **not** attempt to statically model arbitrary user-authored scripts that a given
 server instance may have saved — those are site-specific and outside a stable, versioned API surface.
 
-It does still support user scripts generically: a server exposes `save_script`, `list_scripts`, `get_script` and
-`run_script` as standard tools in their own right, so INDIMCPKit can list, save, and trigger a user's custom scripts
-on the server through those generic calls. What it won't do is generate a typed Swift wrapper per custom script —
-callers work with the script's declared parameter/result schema at runtime instead.
+It does still support user scripts generically: a server exposes standard tools for listing, saving, and running a
+script (`INDIMCPClient.listScripts`/`saveScript`/`getScript`/`runScript`), so INDIMCPKit can list, save, and trigger
+a user's custom scripts on the server through those generic calls. What it won't do is generate a typed Swift wrapper
+per custom script — callers work with the script's declared parameter/result schema at runtime instead.
 
 ### Version alignment
 
