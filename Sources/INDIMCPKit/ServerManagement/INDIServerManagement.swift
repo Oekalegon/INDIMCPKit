@@ -6,7 +6,9 @@ public let defaultINDIServerPort = 7624
 extension INDIMCPClient {
     /// `manage_indi_infra(component: "server", ...)`, shared by the three lifecycle methods below
     /// — replaces the old dedicated `start_indi_server`/`stop_indi_server`/`restart_indi_server`
-    /// tools (INDIMCP-114).
+    /// tools (INDIMCP-114). See also `INDIDriverManagement.manageDriverInfra` and
+    /// `INDIMessaging.startINDIMessaging`/`stopINDIMessaging`, the same tool's other two
+    /// `component` branches.
     private func manageServerInfra(action: String, port: Int? = nil) async throws -> IndiServerStatus {
         var arguments: [String: Value] = ["component": .string("server"), "action": .string(action)]
         if let port {

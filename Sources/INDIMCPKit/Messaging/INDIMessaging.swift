@@ -41,7 +41,9 @@ extension INDIMCPClient {
     /// Queries `indiserver` directly (`getProperties`) rather than returning whatever was last
     /// cached, so the result reflects the device's actual state at call time when possible —
     /// check the returned `refreshed` flag, which is `false` if the driver didn't respond in
-    /// time and `properties` fell back to a previously-cached reading.
+    /// time and `properties` fell back to a previously-cached reading. The `indi_property` tool
+    /// itself exposes no timeout parameter (only `device`), even though the server's own internal
+    /// implementation supports one.
     public func getDeviceProperties(device: String) async throws -> DeviceProperties {
         try await callTool(
             "indi_property",

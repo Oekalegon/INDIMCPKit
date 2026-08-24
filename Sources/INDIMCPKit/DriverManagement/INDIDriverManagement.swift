@@ -11,7 +11,9 @@ extension INDIMCPClient {
     }
 
     /// `manage_indi_infra(component: "driver", ...)`, shared by `startINDIDriver`/`stopINDIDriver`
-    /// — replaces the old dedicated `start_indi_driver`/`stop_indi_driver` tools (INDIMCP-114).
+    /// — replaces the old dedicated `start_indi_driver`/`stop_indi_driver` tools (INDIMCP-114). See
+    /// also `INDIServerManagement.manageServerInfra` and `INDIMessaging.startINDIMessaging`/
+    /// `stopINDIMessaging`, the same tool's other two `component` branches.
     private func manageDriverInfra(action: String, label: String) async throws -> DriverStatus {
         try await callTool(
             "manage_indi_infra",
