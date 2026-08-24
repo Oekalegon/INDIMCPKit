@@ -9,12 +9,17 @@ extension INDIMCPClient {
     /// tools (INDIMCP-114). See also `INDIDriverManagement.manageDriverInfra` and
     /// `INDIMessaging.startINDIMessaging`/`stopINDIMessaging`, the same tool's other two
     /// `component` branches.
+    ///
+    /// Uses `callToolUnion`, not `callTool`: `manage_indi_infra`'s declared Python return type is
+    /// `IndiServerStatus | DriverStatus | MessagingStatus`, a `Union` FastMCP wraps as
+    /// `{"result": ...}` — confirmed against a real server, this failed to decode
+    /// (`keyNotFound("running")`) as plain `callTool` (IMCPKIT-61).
     private func manageServerInfra(action: String, port: Int? = nil) async throws -> IndiServerStatus {
         var arguments: [String: Value] = ["component": .string("server"), "action": .string(action)]
         if let port {
             arguments["port"] = .int(port)
         }
-        return try await callTool("manage_indi_infra", arguments: arguments, decoding: IndiServerStatus.self)
+        return try await callToolUnion("manage_indi_infra", arguments: arguments, decoding: IndiServerStatus.self)
     }
 
     /// Starts `indiserver` on the given port, restarting it first if it's already running.
@@ -33,8 +38,11 @@ extension INDIMCPClient {
     }
 
     /// Reports whether `indiserver` is running, and on which port.
+    ///
+    /// Uses `callToolUnion`: `get_indi_status`'s declared return type,
+    /// `IndiServerStatus | MessagingStatus`, is also a `Union` FastMCP wraps (IMCPKIT-61).
     public func getINDIServerStatus() async throws -> IndiServerStatus {
-        try await callTool(
+        try await callToolUnion(
             "get_indi_status",
             arguments: ["component": .string("server")],
             decoding: IndiServerStatus.self

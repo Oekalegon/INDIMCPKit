@@ -7,6 +7,13 @@ extension INDIMCPClient {
     /// `suggestRig()` calls the same tool directly rather than through this helper, since its
     /// return type is a bare list (needs `callToolList`'s `{"result": [...]}` unwrapping) rather
     /// than a single decoded object.
+    ///
+    /// Uses `callToolUnion`, not `callTool`, for the object-shaped branches this covers
+    /// (`check`/`sync`): `rig_diagnostics`'s declared Python return type is
+    /// `RigCheck | list[RigSuggestion] | FilterSyncOutcome | FilterAdoptOutcome` — a `Union`,
+    /// which FastMCP wraps as `{"result": ...}` regardless of which branch actually runs
+    /// (IMCPKIT-61). Confirmed against a real server: this was originally `callTool` and failed
+    /// to decode.
     private func rigDiagnostics<Output: Decodable & Sendable>(
         action: String,
         rigId: String? = nil,
@@ -24,7 +31,7 @@ extension INDIMCPClient {
         if let direction {
             arguments["direction"] = .string(direction)
         }
-        return try await callTool("rig_diagnostics", arguments: arguments, decoding: Output.self)
+        return try await callToolUnion("rig_diagnostics", arguments: arguments, decoding: Output.self)
     }
 
     /// Proposes which configured rig is likely mounted, by matching connected INDI devices.

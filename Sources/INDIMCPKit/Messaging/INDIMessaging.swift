@@ -2,11 +2,14 @@ import MCP
 
 extension INDIMCPClient {
     /// Connects to the INDI server and starts streaming its property/message events.
+    ///
+    /// Uses `callToolUnion`, not `callTool` — see `INDIServerManagement.manageServerInfra`'s doc
+    /// comment for why every `manage_indi_infra` branch needs this (IMCPKIT-61).
     public func startINDIMessaging(
         host: String = "localhost",
         port: Int = defaultINDIServerPort
     ) async throws -> MessagingStatus {
-        try await callTool(
+        try await callToolUnion(
             "manage_indi_infra",
             arguments: [
                 "component": .string("messaging"),
@@ -20,7 +23,7 @@ extension INDIMCPClient {
 
     /// Disconnects from the INDI server and stops streaming its events.
     public func stopINDIMessaging() async throws -> MessagingStatus {
-        try await callTool(
+        try await callToolUnion(
             "manage_indi_infra",
             arguments: ["component": .string("messaging"), "action": .string("stop")],
             decoding: MessagingStatus.self
@@ -28,8 +31,11 @@ extension INDIMCPClient {
     }
 
     /// Reports whether the INDI messaging stream is running, and its host/port.
+    ///
+    /// Uses `callToolUnion`: `get_indi_status`'s declared return type,
+    /// `IndiServerStatus | MessagingStatus`, is a `Union` FastMCP wraps (IMCPKIT-61).
     public func getINDIMessagingStatus() async throws -> MessagingStatus {
-        try await callTool(
+        try await callToolUnion(
             "get_indi_status",
             arguments: ["component": .string("messaging")],
             decoding: MessagingStatus.self
@@ -44,8 +50,12 @@ extension INDIMCPClient {
     /// time and `properties` fell back to a previously-cached reading. The `indi_property` tool
     /// itself exposes no timeout parameter (only `device`), even though the server's own internal
     /// implementation supports one.
+    ///
+    /// Uses `callToolUnion`, not `callTool`: `indi_property`'s declared return type,
+    /// `DeviceProperties | IndiEvent`, is a `Union` FastMCP wraps as `{"result": ...}` — confirmed
+    /// against a real server, this failed to decode as plain `callTool` (IMCPKIT-61).
     public func getDeviceProperties(device: String) async throws -> DeviceProperties {
-        try await callTool(
+        try await callToolUnion(
             "indi_property",
             arguments: ["action": .string("get"), "device": .string(device)],
             decoding: DeviceProperties.self
@@ -63,7 +73,7 @@ extension INDIMCPClient {
         name: String,
         elements: [String: String]
     ) async throws -> IndiEvent {
-        try await callTool(
+        try await callToolUnion(
             "indi_property",
             arguments: [
                 "action": .string("set"),
