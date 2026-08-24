@@ -1,12 +1,42 @@
 import MCP
 
 extension INDIMCPClient {
+    /// `rig_diagnostics(action, rig_id?, role?, direction?)`, shared by `checkRig`/
+    /// `syncFilterNames`/`adoptFilterNamesFromDriver` below — replaces the old dedicated
+    /// `check_rig`/`sync_filter_names`/`adopt_filter_names_from_driver` tools (INDIMCP-115).
+    /// `suggestRig()` calls the same tool directly rather than through this helper, since its
+    /// return type is a bare list (needs `callToolList`'s `{"result": [...]}` unwrapping) rather
+    /// than a single decoded object.
+    private func rigDiagnostics<Output: Decodable & Sendable>(
+        action: String,
+        rigId: String? = nil,
+        role: String? = nil,
+        direction: String? = nil,
+        decoding type: Output.Type
+    ) async throws -> Output {
+        var arguments: [String: Value] = ["action": .string(action)]
+        if let rigId {
+            arguments["rig_id"] = .string(rigId)
+        }
+        if let role {
+            arguments["role"] = .string(role)
+        }
+        if let direction {
+            arguments["direction"] = .string(direction)
+        }
+        return try await callTool("rig_diagnostics", arguments: arguments, decoding: Output.self)
+    }
+
     /// Proposes which configured rig is likely mounted, by matching connected INDI devices.
     ///
     /// Never auto-selects a rig; candidates are sorted best match first for the operator or
     /// client to choose from. Requires messaging to be running (`startINDIMessaging`).
     public func suggestRig() async throws -> [RigSuggestion] {
-        try await callToolList("suggest_rig", decoding: RigSuggestion.self)
+        try await callToolList(
+            "rig_diagnostics",
+            arguments: ["action": .string("suggest")],
+            decoding: RigSuggestion.self
+        )
     }
 
     /// Reports which of rig `id`'s devices aren't currently connected.
@@ -15,7 +45,7 @@ extension INDIMCPClient {
     /// devices (e.g. imaging without a guide camera). Requires messaging to be running
     /// (`startINDIMessaging`).
     public func checkRig(id: String) async throws -> RigCheck {
-        try await callTool("check_rig", arguments: ["rig_id": .string(id)], decoding: RigCheck.self)
+        try await rigDiagnostics(action: "check", rigId: id, decoding: RigCheck.self)
     }
 
     /// Pre-fills a draft rig skeleton from currently connected INDI devices.
@@ -24,7 +54,7 @@ extension INDIMCPClient {
     /// starting point; never auto-finalizes a rig. Requires messaging to be running
     /// (`startINDIMessaging`).
     public func draftRig() async throws -> RigDraft {
-        try await callTool("draft_rig", decoding: RigDraft.self)
+        try await configurationTool(action: "draft", kind: "rig", decoding: RigDraft.self)
     }
 
     /// Pushes rig `id`'s configured filter names for `role` to the driver's live `FILTER_NAME`,
@@ -36,9 +66,11 @@ extension INDIMCPClient {
     /// if `role` isn't a connected `filterWheel`-like component with `slots` configured, or if
     /// the rig and driver declare a different number of filter slots.
     public func syncFilterNames(rigID: String, role: String) async throws -> FilterSyncOutcome {
-        try await callTool(
-            "sync_filter_names",
-            arguments: ["rig_id": .string(rigID), "role": .string(role)],
+        try await rigDiagnostics(
+            action: "sync",
+            rigId: rigID,
+            role: role,
+            direction: "to_driver",
             decoding: FilterSyncOutcome.self
         )
     }
@@ -51,9 +83,11 @@ extension INDIMCPClient {
     /// the driver is the source of truth this time. Throws if `role` isn't a connected
     /// `filterWheel`-like component, or if the driver declares no filter slots at all.
     public func adoptFilterNamesFromDriver(rigID: String, role: String) async throws -> FilterAdoptOutcome {
-        try await callTool(
-            "adopt_filter_names_from_driver",
-            arguments: ["rig_id": .string(rigID), "role": .string(role)],
+        try await rigDiagnostics(
+            action: "sync",
+            rigId: rigID,
+            role: role,
+            direction: "from_driver",
             decoding: FilterAdoptOutcome.self
         )
     }
