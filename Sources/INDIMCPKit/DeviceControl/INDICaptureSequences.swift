@@ -28,6 +28,13 @@ extension INDIMCPClient {
     ///     the camera's current gain setting unchanged.
     ///   - offset: Camera offset to apply to each frame, in the device's native units. Omit to
     ///     leave the camera's current offset setting unchanged.
+    ///   - binningX: Horizontal binning factor for each frame.
+    ///   - binningY: Vertical binning factor for each frame.
+    ///   - frameX: Sub-frame origin X, in unbinned pixels. Omit (with `frameY`/`frameWidth`/
+    ///     `frameHeight`) for the full sensor.
+    ///   - frameY: Sub-frame origin Y, in unbinned pixels.
+    ///   - frameWidth: Sub-frame width, in unbinned pixels.
+    ///   - frameHeight: Sub-frame height, in unbinned pixels.
     ///   - locationId: A saved `Observatory` identifying this sequence's celestial-context FITS
     ///     headers, best-effort.
     /// - Returns: A `ScriptRunStarted` acknowledging the newly started run, including whether
@@ -42,18 +49,38 @@ extension INDIMCPClient {
         targetTempC: Double = -10,
         gain: Double? = nil,
         offset: Double? = nil,
+        binningX: Int = 1,
+        binningY: Int = 1,
+        frameX: Int? = nil,
+        frameY: Int? = nil,
+        frameWidth: Int? = nil,
+        frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
         var parameters: [String: Value] = [
             "targetTempC": .double(targetTempC),
             "exposureSeconds": .double(exposureSeconds),
             "count": .int(count),
+            "binningX": .int(binningX),
+            "binningY": .int(binningY),
         ]
         if let gain {
             parameters["gain"] = .double(gain)
         }
         if let offset {
             parameters["offset"] = .double(offset)
+        }
+        if let frameX {
+            parameters["frameX"] = .int(frameX)
+        }
+        if let frameY {
+            parameters["frameY"] = .int(frameY)
+        }
+        if let frameWidth {
+            parameters["frameWidth"] = .int(frameWidth)
+        }
+        if let frameHeight {
+            parameters["frameHeight"] = .int(frameHeight)
         }
         return try await runScript(
             scriptId: "capture_dark_sequence",
@@ -79,6 +106,13 @@ extension INDIMCPClient {
     ///     the camera's current gain setting unchanged.
     ///   - offset: Camera offset to apply to each frame, in the device's native units. Omit to
     ///     leave the camera's current offset setting unchanged.
+    ///   - binningX: Horizontal binning factor for each frame.
+    ///   - binningY: Vertical binning factor for each frame.
+    ///   - frameX: Sub-frame origin X, in unbinned pixels. Omit (with `frameY`/`frameWidth`/
+    ///     `frameHeight`) for the full sensor.
+    ///   - frameY: Sub-frame origin Y, in unbinned pixels.
+    ///   - frameWidth: Sub-frame width, in unbinned pixels.
+    ///   - frameHeight: Sub-frame height, in unbinned pixels.
     ///   - locationId: A saved `Observatory` identifying this sequence's celestial-context FITS
     ///     headers, best-effort.
     /// - Returns: A `ScriptRunStarted` acknowledging the newly started run, including whether
@@ -92,17 +126,37 @@ extension INDIMCPClient {
         exposureSeconds: Double = 0,
         gain: Double? = nil,
         offset: Double? = nil,
+        binningX: Int = 1,
+        binningY: Int = 1,
+        frameX: Int? = nil,
+        frameY: Int? = nil,
+        frameWidth: Int? = nil,
+        frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
         var parameters: [String: Value] = [
             "exposureSeconds": .double(exposureSeconds),
             "count": .int(count),
+            "binningX": .int(binningX),
+            "binningY": .int(binningY),
         ]
         if let gain {
             parameters["gain"] = .double(gain)
         }
         if let offset {
             parameters["offset"] = .double(offset)
+        }
+        if let frameX {
+            parameters["frameX"] = .int(frameX)
+        }
+        if let frameY {
+            parameters["frameY"] = .int(frameY)
+        }
+        if let frameWidth {
+            parameters["frameWidth"] = .int(frameWidth)
+        }
+        if let frameHeight {
+            parameters["frameHeight"] = .int(frameHeight)
         }
         return try await runScript(
             scriptId: "capture_bias_sequence",
@@ -130,6 +184,13 @@ extension INDIMCPClient {
     ///     the camera's current gain setting unchanged.
     ///   - offset: Camera offset to apply to each frame, in the device's native units. Omit to
     ///     leave the camera's current offset setting unchanged.
+    ///   - binningX: Horizontal binning factor for each frame.
+    ///   - binningY: Vertical binning factor for each frame.
+    ///   - frameX: Sub-frame origin X, in unbinned pixels. Omit (with `frameY`/`frameWidth`/
+    ///     `frameHeight`) for the full sensor.
+    ///   - frameY: Sub-frame origin Y, in unbinned pixels.
+    ///   - frameWidth: Sub-frame width, in unbinned pixels.
+    ///   - frameHeight: Sub-frame height, in unbinned pixels.
     ///   - locationId: A saved `Observatory` identifying this sequence's celestial-context FITS
     ///     headers, best-effort.
     /// - Returns: A `ScriptRunStarted` acknowledging the newly started run, including whether
@@ -145,6 +206,12 @@ extension INDIMCPClient {
         count: Int,
         gain: Double? = nil,
         offset: Double? = nil,
+        binningX: Int = 1,
+        binningY: Int = 1,
+        frameX: Int? = nil,
+        frameY: Int? = nil,
+        frameWidth: Int? = nil,
+        frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
         var parameters: [String: Value] = [
@@ -152,12 +219,26 @@ extension INDIMCPClient {
             "focusPosition": .int(focusPosition),
             "exposureSeconds": .double(exposureSeconds),
             "count": .int(count),
+            "binningX": .int(binningX),
+            "binningY": .int(binningY),
         ]
         if let gain {
             parameters["gain"] = .double(gain)
         }
         if let offset {
             parameters["offset"] = .double(offset)
+        }
+        if let frameX {
+            parameters["frameX"] = .int(frameX)
+        }
+        if let frameY {
+            parameters["frameY"] = .int(frameY)
+        }
+        if let frameWidth {
+            parameters["frameWidth"] = .int(frameWidth)
+        }
+        if let frameHeight {
+            parameters["frameHeight"] = .int(frameHeight)
         }
         return try await runScript(
             scriptId: "capture_flat_sequence",
@@ -191,6 +272,13 @@ extension INDIMCPClient {
     ///     the camera's current gain setting unchanged.
     ///   - offset: Camera offset to apply to each frame, in the device's native units. Omit to
     ///     leave the camera's current offset setting unchanged.
+    ///   - binningX: Horizontal binning factor for each frame.
+    ///   - binningY: Vertical binning factor for each frame.
+    ///   - frameX: Sub-frame origin X, in unbinned pixels. Omit (with `frameY`/`frameWidth`/
+    ///     `frameHeight`) for the full sensor.
+    ///   - frameY: Sub-frame origin Y, in unbinned pixels.
+    ///   - frameWidth: Sub-frame width, in unbinned pixels.
+    ///   - frameHeight: Sub-frame height, in unbinned pixels.
     ///   - locationId: A saved `Observatory` identifying this sequence's celestial-context FITS
     ///     headers, best-effort.
     /// - Returns: A `ScriptRunStarted` acknowledging the newly started run, including whether
@@ -210,6 +298,12 @@ extension INDIMCPClient {
         targetTempC: Double = -10,
         gain: Double? = nil,
         offset: Double? = nil,
+        binningX: Int = 1,
+        binningY: Int = 1,
+        frameX: Int? = nil,
+        frameY: Int? = nil,
+        frameWidth: Int? = nil,
+        frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
         var parameters: [String: Value] = [
@@ -220,6 +314,8 @@ extension INDIMCPClient {
             "targetTempC": .double(targetTempC),
             "exposureSeconds": .double(exposureSeconds),
             "count": .int(count),
+            "binningX": .int(binningX),
+            "binningY": .int(binningY),
         ]
         if let objectName {
             parameters["objectName"] = .string(objectName)
@@ -229,6 +325,18 @@ extension INDIMCPClient {
         }
         if let offset {
             parameters["offset"] = .double(offset)
+        }
+        if let frameX {
+            parameters["frameX"] = .int(frameX)
+        }
+        if let frameY {
+            parameters["frameY"] = .int(frameY)
+        }
+        if let frameWidth {
+            parameters["frameWidth"] = .int(frameWidth)
+        }
+        if let frameHeight {
+            parameters["frameHeight"] = .int(frameHeight)
         }
         return try await runScript(
             scriptId: "capture_light_sequence",

@@ -127,18 +127,18 @@ let started = try await camera.captureLightSequence(
 )
 ```
 
-- ``Camera/captureLightSequence(ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:gain:offset:locationId:)``
-  (``INDIMCPClient/captureLightSequence(rigId:ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:gain:offset:locationId:)``)
+- ``Camera/captureLightSequence(ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``
+  (``INDIMCPClient/captureLightSequence(rigId:ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``)
   — the imaging-session entry point: slews to `ra`/`dec`, selects a filter, moves the focuser,
   cools the camera, then captures `count` light frames.
-- ``Camera/captureDarkSequence(exposureSeconds:count:targetTempC:gain:offset:locationId:)``
-  (``INDIMCPClient/captureDarkSequence(rigId:exposureSeconds:count:targetTempC:gain:offset:locationId:)``)
+- ``Camera/captureDarkSequence(exposureSeconds:count:targetTempC:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``
+  (``INDIMCPClient/captureDarkSequence(rigId:exposureSeconds:count:targetTempC:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``)
   — cools the camera and captures `count` dark frames at a matching exposure length.
-- ``Camera/captureBiasSequence(count:exposureSeconds:gain:offset:locationId:)``
-  (``INDIMCPClient/captureBiasSequence(rigId:count:exposureSeconds:gain:offset:locationId:)``) —
+- ``Camera/captureBiasSequence(count:exposureSeconds:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``
+  (``INDIMCPClient/captureBiasSequence(rigId:count:exposureSeconds:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``) —
   captures `count` bias frames back to back, shutter closed.
-- ``Camera/captureFlatSequence(filterName:focusPosition:exposureSeconds:count:gain:offset:locationId:)``
-  (``INDIMCPClient/captureFlatSequence(rigId:filterName:focusPosition:exposureSeconds:count:gain:offset:locationId:)``)
+- ``Camera/captureFlatSequence(filterName:focusPosition:exposureSeconds:count:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``
+  (``INDIMCPClient/captureFlatSequence(rigId:filterName:focusPosition:exposureSeconds:count:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``)
   — selects a filter and focus position, then captures `count` flat frames. For sweeping a whole
   grid of flat/dark/bias settings in one run instead, see <doc:CalibrationSweeps>.
 

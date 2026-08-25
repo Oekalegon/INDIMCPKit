@@ -383,6 +383,12 @@ public struct Camera: DeviceHandle {
         targetTempC: Double = -10,
         gain: Double? = nil,
         offset: Double? = nil,
+        binningX: Int = 1,
+        binningY: Int = 1,
+        frameX: Int? = nil,
+        frameY: Int? = nil,
+        frameWidth: Int? = nil,
+        frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
         try await client.ensureConnected(role: .camera, rigId: rigId)
@@ -393,6 +399,12 @@ public struct Camera: DeviceHandle {
             targetTempC: targetTempC,
             gain: gain,
             offset: offset,
+            binningX: binningX,
+            binningY: binningY,
+            frameX: frameX,
+            frameY: frameY,
+            frameWidth: frameWidth,
+            frameHeight: frameHeight,
             locationId: locationId
         )
     }
@@ -404,6 +416,12 @@ public struct Camera: DeviceHandle {
         exposureSeconds: Double = 0,
         gain: Double? = nil,
         offset: Double? = nil,
+        binningX: Int = 1,
+        binningY: Int = 1,
+        frameX: Int? = nil,
+        frameY: Int? = nil,
+        frameWidth: Int? = nil,
+        frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
         try await client.ensureConnected(role: .camera, rigId: rigId)
@@ -413,6 +431,12 @@ public struct Camera: DeviceHandle {
             exposureSeconds: exposureSeconds,
             gain: gain,
             offset: offset,
+            binningX: binningX,
+            binningY: binningY,
+            frameX: frameX,
+            frameY: frameY,
+            frameWidth: frameWidth,
+            frameHeight: frameHeight,
             locationId: locationId
         )
     }
@@ -430,6 +454,12 @@ public struct Camera: DeviceHandle {
         count: Int,
         gain: Double? = nil,
         offset: Double? = nil,
+        binningX: Int = 1,
+        binningY: Int = 1,
+        frameX: Int? = nil,
+        frameY: Int? = nil,
+        frameWidth: Int? = nil,
+        frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
         try await client.ensureConnected(role: .camera, rigId: rigId)
@@ -441,6 +471,12 @@ public struct Camera: DeviceHandle {
             count: count,
             gain: gain,
             offset: offset,
+            binningX: binningX,
+            binningY: binningY,
+            frameX: frameX,
+            frameY: frameY,
+            frameWidth: frameWidth,
+            frameHeight: frameHeight,
             locationId: locationId
         )
     }
@@ -463,6 +499,12 @@ public struct Camera: DeviceHandle {
         targetTempC: Double = -10,
         gain: Double? = nil,
         offset: Double? = nil,
+        binningX: Int = 1,
+        binningY: Int = 1,
+        frameX: Int? = nil,
+        frameY: Int? = nil,
+        frameWidth: Int? = nil,
+        frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
         try await client.ensureConnected(role: .camera, rigId: rigId)
@@ -478,6 +520,12 @@ public struct Camera: DeviceHandle {
             targetTempC: targetTempC,
             gain: gain,
             offset: offset,
+            binningX: binningX,
+            binningY: binningY,
+            frameX: frameX,
+            frameY: frameY,
+            frameWidth: frameWidth,
+            frameHeight: frameHeight,
             locationId: locationId
         )
     }

@@ -70,30 +70,36 @@ struct INDICaptureSequencesIntegrationTests {
     func argumentKeysMatchDeclaredParameters() async throws {
         let client = try await connectedTestClient()
 
+        let binningAndFrameKeys: Set<String> = [
+            "binningX", "binningY", "frameX", "frameY", "frameWidth", "frameHeight",
+        ]
+
         let dark = try await client.getScript(id: "capture_dark_sequence")
         #expect(
             Set(dark.parameters.keys)
-                == ["targetTempC", "exposureSeconds", "count", "gain", "offset"]
+                == Set(["targetTempC", "exposureSeconds", "count", "gain", "offset"]).union(binningAndFrameKeys)
         )
 
         let bias = try await client.getScript(id: "capture_bias_sequence")
         #expect(
-            Set(bias.parameters.keys) == ["exposureSeconds", "count", "gain", "offset"]
+            Set(bias.parameters.keys)
+                == Set(["exposureSeconds", "count", "gain", "offset"]).union(binningAndFrameKeys)
         )
 
         let flat = try await client.getScript(id: "capture_flat_sequence")
         #expect(
             Set(flat.parameters.keys)
-                == ["filterName", "focusPosition", "exposureSeconds", "count", "gain", "offset"]
+                == Set(["filterName", "focusPosition", "exposureSeconds", "count", "gain", "offset"])
+                .union(binningAndFrameKeys)
         )
 
         let light = try await client.getScript(id: "capture_light_sequence")
         #expect(
             Set(light.parameters.keys)
-                == [
+                == Set([
                     "ra", "dec", "objectName", "filterName", "focusPosition", "targetTempC",
                     "exposureSeconds", "count", "gain", "offset",
-                ]
+                ]).union(binningAndFrameKeys)
         )
 
         await client.disconnect()
