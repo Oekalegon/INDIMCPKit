@@ -115,7 +115,10 @@ exposure, INDIMCPKit wraps four composed, multi-step scripts that capture a whol
 frames in one call. Unlike the single-action commands above, these have no dedicated server-side
 tool of their own — they're reachable only through the generic script mechanism, so they're
 implemented as `INDIMCPClient` methods, with a thin ``Camera``-scoped wrapper over each that runs
-the same connectivity check as every other ``Camera`` command before delegating:
+the same connectivity check as every other ``Camera`` command before delegating. Every one of the
+four also takes the same `binningX`/`binningY`/`frameX`/`frameY`/`frameWidth`/`frameHeight`
+parameters as `captureFrame` itself, with the same defaulting: binning defaults to `1`, and the
+sub-frame arguments default to the full sensor unless all four are given together.
 
 ```swift
 let started = try await camera.captureLightSequence(
