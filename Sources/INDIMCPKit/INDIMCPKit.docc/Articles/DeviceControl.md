@@ -42,12 +42,53 @@ try await camera.coolerOff()
 property — see its doc comment for the staleness caveat inherent to any state derived from
 ``INDIMCPClient/getDeviceProperties(device:)``.
 
+### Camera properties
+
+Beyond the fire-and-forget commands above, `Camera` exposes standing sensor state as individually
+readable/settable properties — independent of any one `captureFrame` call:
+
+```swift
+let currentTemp = try await camera.currentTempC()
+try await camera.setGain(100)
+let (x, y) = try await camera.binning() ?? (1, 1)
+try await camera.setFrame(x: 0, y: 0, width: 4096, height: 4096)
+```
+
+Every getter (`currentTempC`/`targetTempC`/`coolerPowerPercent`/`exposureCountdownSeconds`/`gain`/
+`offset`/`binning`/`frame`/`bitDepth`) reads a live INDI property directly and returns `nil` if
+that can't be determined right now — the same best-effort, UI-oriented contract `isCoolerOn`
+already documents, not an authoritative connection check. Every setter (`setGain`/`setOffset`/
+`setBinning`/`setFrame`/`setTargetTempC`) runs the same connectivity check every other `Camera`
+command does, then writes the property directly rather than starting a script run — no
+``ScriptRunStarted`` to poll, since a single property write settles immediately.
+
+``Camera/runSensorCalibrationSweep(gains:offsets:flatExposureSecondsList:biasCount:darkCount:biasExposureSeconds:locationId:)``
+runs a bias + flat-dark sensor-analysis sweep across every `(gain, offset,
+flatExposureSeconds)` combination — see <doc:CalibrationSweeps> for the flat-side counterpart and
+following a sweep to completion.
+
 ### Filter wheel and focuser
 
 ```swift
 try await filterWheel.selectFilter("Ha")
 try await focuser.setFocusPosition(15000)
 ```
+
+`FilterWheel` also exposes the read side of filter selection, and per-position name management
+independent of which filter is currently selected:
+
+```swift
+let selected = try await filterWheel.currentFilterName()
+try await filterWheel.setFilterName(slot: 3, name: "SII")
+let outcome = try await filterWheel.syncFilterNames()
+```
+
+`currentFilterName()`/`filterNames()` read the rig's own configured slot map (the "source of
+truth"); `liveFilterNames()` reads the connected driver's live `FILTER_NAME` property instead,
+independent of — and possibly disagreeing with — the rig's configuration. `setFilterName(slot:name:)`
+only ever edits the rig's saved configuration (via `saveRig`); it never touches the live driver as
+a side effect. `syncFilterNames()`/`adoptFilterNamesFromDriver()` are the deliberate, explicit
+steps for pushing/pulling between the two when they disagree.
 
 ### Connecting and disconnecting a device
 
