@@ -138,6 +138,12 @@ public struct Camera: DeviceHandle {
     }
 
     /// Sets the sensor gain as standing state, independent of any one `captureFrame` call.
+    ///
+    /// - Warning: Changing this while an exposure is in progress (`exposureCountdownSeconds()` is
+    ///   non-`nil`/non-zero) is driver-dependent — some drivers reject the change outright, others
+    ///   apply it silently to the exposure already in flight, corrupting it. Check
+    ///   `exposureCountdownSeconds()` first if that matters for your use case; this call doesn't
+    ///   check it for you.
     public func setGain(_ gain: Double) async throws {
         let device = try await connectedDeviceName()
         _ = try await client.sendINDIProperty(device: device, name: "CCD_GAIN", elements: ["GAIN": String(gain)])
@@ -152,6 +158,9 @@ public struct Camera: DeviceHandle {
     }
 
     /// Sets the sensor offset as standing state, independent of any one `captureFrame` call.
+    ///
+    /// - Warning: Same in-progress-exposure caveat as `setGain(_:)` — check
+    ///   `exposureCountdownSeconds()` first if that matters for your use case.
     public func setOffset(_ offset: Double) async throws {
         let device = try await connectedDeviceName()
         _ = try await client.sendINDIProperty(device: device, name: "CCD_OFFSET", elements: ["OFFSET": String(offset)])
@@ -167,6 +176,11 @@ public struct Camera: DeviceHandle {
     }
 
     /// Sets pixel binning as standing state, independent of any one `captureFrame` call.
+    ///
+    /// - Warning: Same in-progress-exposure caveat as `setGain(_:)` — check
+    ///   `exposureCountdownSeconds()` first if that matters for your use case. Binning is
+    ///   especially likely to be rejected or to produce a malformed frame if changed mid-exposure,
+    ///   since it changes the sensor readout geometry the driver is already midway through.
     public func setBinning(x: Int, y: Int) async throws {
         let device = try await connectedDeviceName()
         _ = try await client.sendINDIProperty(
@@ -191,6 +205,11 @@ public struct Camera: DeviceHandle {
 
     /// Sets the sub-frame ROI as standing state, independent of any one `captureFrame` call. Set
     /// all four together for a sub-frame, or to the sensor's full dimensions to reset it.
+    ///
+    /// - Warning: Same in-progress-exposure caveat as `setGain(_:)` — check
+    ///   `exposureCountdownSeconds()` first if that matters for your use case. Like binning, a
+    ///   changed ROI mid-exposure is especially likely to be rejected or produce a malformed
+    ///   frame, since it changes the sensor readout geometry the driver is already midway through.
     public func setFrame(x: Int, y: Int, width: Int, height: Int) async throws {
         let device = try await connectedDeviceName()
         _ = try await client.sendINDIProperty(
