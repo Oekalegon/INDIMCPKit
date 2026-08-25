@@ -57,10 +57,10 @@ public struct Camera: DeviceHandle {
     /// recently observed `CCD_COOLER` event via `listINDIMessages`, which INDIMCP-114 removed with
     /// no replacement tool — this reads the live property directly instead (IMCPKIT-28).
     public func isCoolerOn() async throws -> Bool? {
-        guard let value = try await liveProperties()?.properties["CCD_COOLER"]?.elements["COOLER_ON"] else {
+        guard let properties = try await liveProperties() else {
             return nil
         }
-        return value == "On"
+        return Camera.coolerOn(from: properties)
     }
 
     // MARK: Cooler temperature/power
@@ -68,11 +68,10 @@ public struct Camera: DeviceHandle {
     /// Current sensor temperature, in Celsius — `nil` if that can't be determined (same reasons
     /// as `isCoolerOn`).
     public func currentTempC() async throws -> Double? {
-        guard let value = try await liveProperties()?.properties["CCD_TEMPERATURE"]?.elements["CCD_TEMPERATURE_VALUE"]
-        else {
+        guard let properties = try await liveProperties() else {
             return nil
         }
-        return Double(value)
+        return Camera.doubleElement("CCD_TEMPERATURE", "CCD_TEMPERATURE_VALUE", from: properties)
     }
 
     /// The temperature the cooler is currently driving toward. Caveat: INDI's `CCD_TEMPERATURE`
@@ -105,11 +104,10 @@ public struct Camera: DeviceHandle {
     ///   standard property list, not confirmed against a real driver's property dump — verify
     ///   against one before relying on this in a safety-relevant path.
     public func coolerPowerPercent() async throws -> Double? {
-        guard let value = try await liveProperties()?.properties["CCD_COOLER_POWER"]?.elements["CCD_COOLER_VALUE"]
-        else {
+        guard let properties = try await liveProperties() else {
             return nil
         }
-        return Double(value)
+        return Camera.doubleElement("CCD_COOLER_POWER", "CCD_COOLER_VALUE", from: properties)
     }
 
     // MARK: Exposure
@@ -121,11 +119,10 @@ public struct Camera: DeviceHandle {
     ///   drivers report `CCD_EXPOSURE_VALUE`, but this isn't guaranteed by INDI's protocol and
     ///   varies by driver — treat a `0` as "not counting down," not necessarily "definitely idle."
     public func exposureCountdownSeconds() async throws -> Double? {
-        guard let value = try await liveProperties()?.properties["CCD_EXPOSURE"]?.elements["CCD_EXPOSURE_VALUE"]
-        else {
+        guard let properties = try await liveProperties() else {
             return nil
         }
-        return Double(value)
+        return Camera.doubleElement("CCD_EXPOSURE", "CCD_EXPOSURE_VALUE", from: properties)
     }
 
     // MARK: Sensor settings (standing state, independent of any one captureFrame call)
@@ -134,10 +131,10 @@ public struct Camera: DeviceHandle {
     /// `nil` case), or if this driver doesn't expose `CCD_GAIN` as a standing setting at all
     /// (some drivers only accept gain per-exposure, via `captureFrame(gain:)`).
     public func gain() async throws -> Double? {
-        guard let value = try await liveProperties()?.properties["CCD_GAIN"]?.elements["GAIN"] else {
+        guard let properties = try await liveProperties() else {
             return nil
         }
-        return Double(value)
+        return Camera.doubleElement("CCD_GAIN", "GAIN", from: properties)
     }
 
     /// Sets the sensor gain as standing state, independent of any one `captureFrame` call.
@@ -148,10 +145,10 @@ public struct Camera: DeviceHandle {
 
     /// Current sensor offset — `nil` for the same reasons as `gain()`'s `nil` case.
     public func offset() async throws -> Double? {
-        guard let value = try await liveProperties()?.properties["CCD_OFFSET"]?.elements["OFFSET"] else {
+        guard let properties = try await liveProperties() else {
             return nil
         }
-        return Double(value)
+        return Camera.doubleElement("CCD_OFFSET", "OFFSET", from: properties)
     }
 
     /// Sets the sensor offset as standing state, independent of any one `captureFrame` call.
@@ -163,13 +160,10 @@ public struct Camera: DeviceHandle {
     /// Current pixel binning — `nil` if that can't be determined (same reasons as `isCoolerOn`'s
     /// `nil` case).
     public func binning() async throws -> (x: Int, y: Int)? {
-        guard let elements = try await liveProperties()?.properties["CCD_BINNING"]?.elements,
-            let x = parseINDIInt(elements["HOR_BIN"]),
-            let y = parseINDIInt(elements["VER_BIN"])
-        else {
+        guard let properties = try await liveProperties() else {
             return nil
         }
-        return (x: x, y: y)
+        return Camera.binning(from: properties)
     }
 
     /// Sets pixel binning as standing state, independent of any one `captureFrame` call.
@@ -189,15 +183,10 @@ public struct Camera: DeviceHandle {
     ///   standard property list, not confirmed against a real driver's property dump — verify
     ///   against one before relying on this in a safety-relevant path.
     public func frame() async throws -> (x: Int, y: Int, width: Int, height: Int)? {
-        guard let elements = try await liveProperties()?.properties["CCD_FRAME"]?.elements,
-            let x = parseINDIInt(elements["X"]),
-            let y = parseINDIInt(elements["Y"]),
-            let width = parseINDIInt(elements["WIDTH"]),
-            let height = parseINDIInt(elements["HEIGHT"])
-        else {
+        guard let properties = try await liveProperties() else {
             return nil
         }
-        return (x: x, y: y, width: width, height: height)
+        return Camera.frame(from: properties)
     }
 
     /// Sets the sub-frame ROI as standing state, independent of any one `captureFrame` call. Set
@@ -215,7 +204,68 @@ public struct Camera: DeviceHandle {
     /// only some CMOS drivers support switching capture format at all (`CCD_CAPTURE_FORMAT`), and
     /// INDIMCP-server doesn't currently wrap it. Revisit if a concrete camera needs it.
     public func bitDepth() async throws -> Int? {
-        parseINDIInt(try await liveProperties()?.properties["CCD_INFO"]?.elements["CCD_BITSPERPIXEL"])
+        guard let properties = try await liveProperties() else {
+            return nil
+        }
+        return Camera.intElement("CCD_INFO", "CCD_BITSPERPIXEL", from: properties)
+    }
+
+    /// Parses whether the cooler is on from an already-fetched `CCD_COOLER` snapshot — `nil` if
+    /// that property hasn't been observed at all. Pure and offline-testable by design: this is
+    /// the exact logic that once had a bug (`... == "On"` silently returning `false` instead of
+    /// `nil` when `CCD_COOLER` was absent, via Swift's optional-chaining-then-compare collapsing
+    /// to a concrete `Bool`) which only live verification happened to catch, since nothing here
+    /// could be tested without a real server before this was split out. See `isCoolerOn()`.
+    static func coolerOn(from properties: DeviceProperties) -> Bool? {
+        guard let value = properties.properties["CCD_COOLER"]?.elements["COOLER_ON"] else {
+            return nil
+        }
+        return value == "On"
+    }
+
+    /// Parses a `Double`-valued element from an already-fetched property snapshot — `nil` if
+    /// `propertyName`/`elementName` isn't present. Pure and offline-testable; shared by every
+    /// `Double`-returning getter above.
+    static func doubleElement(_ propertyName: String, _ elementName: String, from properties: DeviceProperties) -> Double? {
+        guard let value = properties.properties[propertyName]?.elements[elementName] else {
+            return nil
+        }
+        return Double(value)
+    }
+
+    /// Parses an `Int`-valued element from an already-fetched property snapshot, tolerating
+    /// INDI's float-on-the-wire number formatting (see `parseINDIInt`) — `nil` if
+    /// `propertyName`/`elementName` isn't present or isn't parseable. Pure and offline-testable;
+    /// shared by `bitDepth()` and (indirectly, via their own dedicated parsers) `binning()`/
+    /// `frame()`.
+    static func intElement(_ propertyName: String, _ elementName: String, from properties: DeviceProperties) -> Int? {
+        parseINDIInt(properties.properties[propertyName]?.elements[elementName])
+    }
+
+    /// Parses `CCD_BINNING`'s `HOR_BIN`/`VER_BIN` elements from an already-fetched property
+    /// snapshot — `nil` unless both are present and parseable. Pure and offline-testable.
+    static func binning(from properties: DeviceProperties) -> (x: Int, y: Int)? {
+        guard let elements = properties.properties["CCD_BINNING"]?.elements,
+            let x = parseINDIInt(elements["HOR_BIN"]),
+            let y = parseINDIInt(elements["VER_BIN"])
+        else {
+            return nil
+        }
+        return (x: x, y: y)
+    }
+
+    /// Parses `CCD_FRAME`'s `X`/`Y`/`WIDTH`/`HEIGHT` elements from an already-fetched property
+    /// snapshot — `nil` unless all four are present and parseable. Pure and offline-testable.
+    static func frame(from properties: DeviceProperties) -> (x: Int, y: Int, width: Int, height: Int)? {
+        guard let elements = properties.properties["CCD_FRAME"]?.elements,
+            let x = parseINDIInt(elements["X"]),
+            let y = parseINDIInt(elements["Y"]),
+            let width = parseINDIInt(elements["WIDTH"]),
+            let height = parseINDIInt(elements["HEIGHT"])
+        else {
+            return nil
+        }
+        return (x: x, y: y, width: width, height: height)
     }
 
     /// Best-effort live property snapshot for this rig's camera device — `nil` if this rig's
