@@ -29,6 +29,35 @@ import Testing
 /// around it into `frame_store` directly the way that manual check did. Promote this into a real
 /// test here following the same driver-connect-and-capture pattern as
 /// `frameLifecycleConfirmTransferThenDelete`.
+/// Thrown by `captureAndAwaitFrame` when `capture_frame` doesn't reach `.completed` — surfaces the
+/// actual terminal status (e.g. `.failed`) rather than leaving the caller with a silent nil.
+private struct FrameCaptureDidNotComplete: Error, CustomStringConvertible {
+    let status: ScriptRunStatus
+    var description: String { "expected capture_frame to complete, got \(status)" }
+}
+
+/// Starts a `capture_frame` run against `rigId`, waits for it to finish, and returns the frame it
+/// produced.
+///
+/// Shared by every test in this suite that needs a real captured frame, rather than each repeating
+/// its own "start → poll → look up the frame" boilerplate — see `frameLifecycleConfirmTransferThenDelete`.
+///
+/// - Throws: `FrameCaptureDidNotComplete` if the run finishes in any non-`.completed` terminal
+///   status.
+private func captureAndAwaitFrame(
+    client: INDIMCPClient, rigId: String, exposureSeconds: Double = 1
+) async throws -> FrameMetadataResponse {
+    let started = try await client.captureFrame(rigId: rigId, exposureSeconds: exposureSeconds)
+    let status = try await client.waitForTerminalStatus(
+        runId: started.runId, pollInterval: .milliseconds(200), maxAttempts: 100
+    )
+    guard case .completed(let completed) = status else {
+        throw FrameCaptureDidNotComplete(status: status)
+    }
+    let frames = try await client.listFrames(runId: completed.runId)
+    return try #require(frames.first)
+}
+
 @Suite("INDI frames (live server)")
 struct INDIFramesIntegrationTests {
     @Test(
@@ -128,71 +157,62 @@ struct INDIFramesIntegrationTests {
             )
             _ = try await client.saveRig(rig)
 
-            let connectStarted = try await client.connectDevice(rigId: rig.id, role: "camera")
-            _ = try await client.waitForTerminalStatus(
-                runId: connectStarted.runId, pollInterval: .milliseconds(200), maxAttempts: 50
-            )
-
-            let captureStarted = try await client.captureFrame(rigId: rig.id, exposureSeconds: 1)
-            let captureStatus = try await client.waitForTerminalStatus(
-                runId: captureStarted.runId, pollInterval: .milliseconds(200), maxAttempts: 100
-            )
-            guard case .completed(let completed) = captureStatus else {
-                Testing.Issue.record("expected capture_frame to complete, got \(captureStatus)")
-                _ = try await client.disconnectDevice(rigId: rig.id, role: "camera")
-                _ = try await client.stopINDIDriver(label: "CCD Simulator")
+            // Runs unconditionally, on both the success and failure paths below, so a capture
+            // failure or a mid-test throw never leaves the driver/indiserver running for whatever
+            // test acquires IndiServerTestLock next. Individual steps use `try?` so one already-torn-
+            // down step (e.g. a driver that failed to start) doesn't stop the rest of teardown from
+            // running, and so a teardown failure never masks the original error being rethrown.
+            func tearDown() async {
+                _ = try? await client.disconnectDevice(rigId: rig.id, role: "camera")
+                _ = try? await client.stopINDIDriver(label: "CCD Simulator")
+                _ = try? await client.stopINDIServer()
                 await client.disconnect()
-                return
             }
 
-            let captured = try await client.listFrames(runId: completed.runId)
-            let frameId = try #require(captured.first?.frameId)
-
-            // getFrameMetadata's success path — a real frame_id, not just the unknown-id error case.
-            let metadata = try await client.getFrameMetadata(frameId: frameId)
-            #expect(metadata.frameId == frameId)
-            #expect(metadata.transferredAt == nil)
-
-            // deleteFrame refuses an unconfirmed frame by default.
-            await #expect(throws: INDIMCPClientError.self) {
-                _ = try await client.deleteFrame(frameId: frameId)
-            }
-
-            let confirmed = try await client.confirmFrameTransfer(frameId: frameId)
-            #expect(confirmed.frameId == frameId)
-            #expect(confirmed.transferredAt != nil)
-
-            let deleted = try await client.deleteFrame(frameId: frameId)
-            #expect(deleted.frameId == frameId)
-            #expect(deleted.transferredAt != nil)
-
-            await #expect(throws: INDIMCPClientError.self) {
-                _ = try await client.getFrameMetadata(frameId: frameId)
-            }
-
-            // deleteFrame(requireTransferred: false) overrides the guard above, deleting a second
-            // frame that was never confirmed transferred.
-            let secondCaptureStarted = try await client.captureFrame(rigId: rig.id, exposureSeconds: 1)
-            let secondCaptureStatus = try await client.waitForTerminalStatus(
-                runId: secondCaptureStarted.runId, pollInterval: .milliseconds(200), maxAttempts: 100
-            )
-            if case .completed(let secondCompleted) = secondCaptureStatus {
-                let secondCaptured = try await client.listFrames(runId: secondCompleted.runId)
-                let secondFrameId = try #require(secondCaptured.first?.frameId)
-
-                let secondDeleted = try await client.deleteFrame(
-                    frameId: secondFrameId, requireTransferred: false
+            do {
+                let connectStarted = try await client.connectDevice(rigId: rig.id, role: "camera")
+                _ = try await client.waitForTerminalStatus(
+                    runId: connectStarted.runId, pollInterval: .milliseconds(200), maxAttempts: 50
                 )
-                #expect(secondDeleted.frameId == secondFrameId)
+
+                let frame = try await captureAndAwaitFrame(client: client, rigId: rig.id)
+
+                // getFrameMetadata's success path — a real frame_id, not just the unknown-id error case.
+                let metadata = try await client.getFrameMetadata(frameId: frame.frameId)
+                #expect(metadata.frameId == frame.frameId)
+                #expect(metadata.transferredAt == nil)
+
+                // deleteFrame refuses an unconfirmed frame by default.
+                await #expect(throws: INDIMCPClientError.self) {
+                    _ = try await client.deleteFrame(frameId: frame.frameId)
+                }
+
+                let confirmed = try await client.confirmFrameTransfer(frameId: frame.frameId)
+                #expect(confirmed.frameId == frame.frameId)
+                #expect(confirmed.transferredAt != nil)
+
+                let deleted = try await client.deleteFrame(frameId: frame.frameId)
+                #expect(deleted.frameId == frame.frameId)
+                #expect(deleted.transferredAt != nil)
+
+                await #expect(throws: INDIMCPClientError.self) {
+                    _ = try await client.getFrameMetadata(frameId: frame.frameId)
+                }
+
+                // deleteFrame(requireTransferred: false) overrides the guard above, deleting a
+                // second frame that was never confirmed transferred.
+                let secondFrame = try await captureAndAwaitFrame(client: client, rigId: rig.id)
+                let secondDeleted = try await client.deleteFrame(
+                    frameId: secondFrame.frameId, requireTransferred: false
+                )
+                #expect(secondDeleted.frameId == secondFrame.frameId)
                 #expect(secondDeleted.transferredAt == nil)
-            } else {
-                Testing.Issue.record("expected second capture_frame to complete, got \(secondCaptureStatus)")
+            } catch {
+                await tearDown()
+                throw error
             }
 
-            _ = try await client.disconnectDevice(rigId: rig.id, role: "camera")
-            _ = try await client.stopINDIDriver(label: "CCD Simulator")
-            _ = try await client.stopINDIServer()
-            await client.disconnect()
+            await tearDown()
         }
     }
 }
