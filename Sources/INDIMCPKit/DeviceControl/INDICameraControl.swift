@@ -69,26 +69,18 @@ extension INDIMCPClient {
         var extra: [String: Value] = [
             "exposureSeconds": .double(exposureSeconds),
             "frameType": .string(frameType.rawValue),
-            "binningX": .int(binningX),
-            "binningY": .int(binningY),
         ]
+        extra.merge(
+            binningAndFrameParameters(
+                binningX: binningX, binningY: binningY,
+                frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
+            )
+        ) { _, new in new }
         if let gain {
             extra["gain"] = .double(gain)
         }
         if let offset {
             extra["offset"] = .double(offset)
-        }
-        if let frameX {
-            extra["frameX"] = .int(frameX)
-        }
-        if let frameY {
-            extra["frameY"] = .int(frameY)
-        }
-        if let frameWidth {
-            extra["frameWidth"] = .int(frameWidth)
-        }
-        if let frameHeight {
-            extra["frameHeight"] = .int(frameHeight)
         }
         if let locationId {
             extra["location_id"] = .string(locationId)
