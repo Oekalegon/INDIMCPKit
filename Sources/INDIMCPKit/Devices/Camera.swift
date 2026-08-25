@@ -287,15 +287,15 @@ public struct Camera: DeviceHandle {
         return (x: x, y: y, width: width, height: height)
     }
 
-    /// Best-effort live property snapshot for this rig's camera device — `nil` if this rig's
-    /// camera component has no `device` name resolved, or the property read itself fails for any
-    /// reason (transport/protocol error, INDI messaging not started, device never seen by the
-    /// server, ...). Shared by every property getter above; see `isCoolerOn`'s doc comment for
-    /// why collapsing every failure reason into one `nil` is this method's deliberate contract,
-    /// not an oversight.
+    /// Best-effort live property snapshot for this rig's camera device — `nil` if the rig has no
+    /// single `camera`-role component (missing or ambiguous), that component has no `device` name
+    /// resolved, or the property read itself fails for any reason (transport/protocol error, INDI
+    /// messaging not started, device never seen by the server, ...). Shared by every property
+    /// getter above; see `isCoolerOn`'s doc comment for why collapsing every failure reason into
+    /// one `nil` is this method's deliberate contract, not an oversight.
     private func liveProperties() async throws -> DeviceProperties? {
         let rig = try await client.getRig(id: rigId)
-        guard let device = rig.components.first(where: { $0.role == .camera })?.device else {
+        guard let device = uniqueComponent(for: .camera, in: rig)?.device else {
             return nil
         }
         return try? await client.getDeviceProperties(device: device)
@@ -303,11 +303,17 @@ public struct Camera: DeviceHandle {
 
     /// Ensures this rig's camera is connected, then resolves its INDI device name — every setter
     /// above needs both before sending a raw property write, unlike the getters above (which
-    /// tolerate an unresolved/disconnected device as part of their best-effort `nil` contract).
+    /// tolerate an unresolved/disconnected or ambiguous device as part of their best-effort `nil`
+    /// contract).
+    ///
+    /// - Throws: `DeviceControlError.noComponentForRole` if the rig has no `camera`-role
+    ///   component, or `DeviceControlError.ambiguousComponentForRole` if it has more than one —
+    ///   every setter always writes to exactly one component's device, never guesses which.
     private func connectedDeviceName() async throws -> String {
         try await client.ensureConnected(role: .camera, rigId: rigId)
         let rig = try await client.getRig(id: rigId)
-        guard let device = rig.components.first(where: { $0.role == .camera })?.device else {
+        let component = try resolveUniqueComponent(for: .camera, in: rig, rigId: rigId)
+        guard let device = component.device else {
             throw DeviceControlError.noComponentForRole(role: .camera, rigId: rigId)
         }
         return device

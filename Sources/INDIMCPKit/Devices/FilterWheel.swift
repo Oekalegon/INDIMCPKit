@@ -29,7 +29,7 @@ public struct FilterWheel: DeviceHandle {
     /// any reason). Read-side counterpart to `selectFilter`.
     public func currentFilterName() async throws -> String? {
         let rig = try await client.getRig(id: rigId)
-        guard let component = uniqueFilterWheelComponent(in: rig), let device = component.device else {
+        guard let component = uniqueComponent(for: .filterWheel, in: rig), let device = component.device else {
             return nil
         }
         guard let properties = try? await client.getDeviceProperties(device: device) else {
@@ -46,7 +46,7 @@ public struct FilterWheel: DeviceHandle {
     /// *configured* slot count. Empty if the rig has no single `filterWheel`-role component.
     public func filterNames() async throws -> [Int: String] {
         let rig = try await client.getRig(id: rigId)
-        return uniqueFilterWheelComponent(in: rig)?.slots ?? [:]
+        return uniqueComponent(for: .filterWheel, in: rig)?.slots ?? [:]
     }
 
     /// The filter wheel's live slot-number → filter-name map, read directly from the connected
@@ -61,7 +61,7 @@ public struct FilterWheel: DeviceHandle {
     /// a slot-count mismatch.
     public func liveFilterNames() async throws -> [Int: String] {
         let rig = try await client.getRig(id: rigId)
-        guard let device = uniqueFilterWheelComponent(in: rig)?.device else {
+        guard let device = uniqueComponent(for: .filterWheel, in: rig)?.device else {
             return [:]
         }
         guard let properties = try? await client.getDeviceProperties(device: device) else {
@@ -92,12 +92,9 @@ public struct FilterWheel: DeviceHandle {
     ///   this always mutates exactly one component's `slots`, never guesses which.
     public func setFilterName(slot: Int, name: String) async throws -> [Int: String] {
         let rig = try await client.getRig(id: rigId)
-        let matchIndices = rig.components.indices.filter { rig.components[$0].role == .filterWheel }
-        guard let index = matchIndices.first, matchIndices.count == 1 else {
-            if matchIndices.isEmpty {
-                throw DeviceControlError.noComponentForRole(role: .filterWheel, rigId: rigId)
-            }
-            throw DeviceControlError.ambiguousComponentForRole(role: .filterWheel, rigId: rigId)
+        let component = try resolveUniqueComponent(for: .filterWheel, in: rig, rigId: rigId)
+        guard let index = rig.components.firstIndex(where: { $0.id == component.id }) else {
+            throw DeviceControlError.noComponentForRole(role: .filterWheel, rigId: rigId)
         }
         var updatedSlots = rig.components[index].slots ?? [:]
         updatedSlots[slot] = name
@@ -123,15 +120,6 @@ public struct FilterWheel: DeviceHandle {
     public func adoptFilterNamesFromDriver() async throws -> FilterAdoptOutcome {
         try await client.ensureConnected(role: .filterWheel, rigId: rigId)
         return try await client.adoptFilterNamesFromDriver(rigID: rigId, role: role.rawValue)
-    }
-
-    /// The rig's single `filterWheel`-role component — `nil` if the rig declares zero or more
-    /// than one. Getters use this soft form (nothing sensible to read either way); `setFilterName`
-    /// resolves the same question itself instead, since it needs to distinguish "missing" from
-    /// "ambiguous" to throw the right error.
-    private func uniqueFilterWheelComponent(in rig: Rig) -> Component? {
-        let matches = rig.components.filter { $0.role == .filterWheel }
-        return matches.count == 1 ? matches.first : nil
     }
 }
 
