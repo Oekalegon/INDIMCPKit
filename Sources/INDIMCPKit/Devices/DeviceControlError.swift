@@ -10,6 +10,11 @@ public enum DeviceControlError: Error, Sendable {
     /// component with no `device` configured at all is never reported as connected, whether or
     /// not that's actually a problem for this rig.
     case deviceNotConnected(role: Role, rigId: String)
+
+    /// The rig has more than one component declaring `role`, and the operation needs to pick
+    /// exactly one to read or mutate (e.g. `FilterWheel.setFilterName`) — thrown rather than
+    /// silently acting on whichever component happened to come first.
+    case ambiguousComponentForRole(role: Role, rigId: String)
 }
 
 extension DeviceControlError: CustomStringConvertible {
@@ -20,6 +25,8 @@ extension DeviceControlError: CustomStringConvertible {
             return "Rig '\(rigId)' has no component with role '\(role)'"
         case .deviceNotConnected(let role, let rigId):
             return "Rig '\(rigId)' has no connected component with role '\(role)'"
+        case .ambiguousComponentForRole(let role, let rigId):
+            return "Rig '\(rigId)' has more than one component with role '\(role)'"
         }
     }
 }

@@ -34,12 +34,38 @@ try await mount.trackOff()
 ```swift
 try await camera.coolCamera(targetTempC: -10)
 let started = try await camera.captureFrame(exposureSeconds: 30, frameType: .light)
+try await camera.abortExposure()
 try await camera.coolerOff()
 ```
 
-`isCoolerOn()` reports the cooler state from the most recently observed live event — see its doc
-comment for the staleness caveat inherent to any state derived from
-``INDIMCPClient/listINDIMessages(device:limit:)``.
+`isCoolerOn()` reports the cooler state read directly from the device's live `CCD_COOLER`
+property — see its doc comment for the staleness caveat inherent to any state derived from
+``INDIMCPClient/getDeviceProperties(device:)``.
+
+### Camera properties
+
+Beyond the fire-and-forget commands above, `Camera` exposes standing sensor state as individually
+readable/settable properties — independent of any one `captureFrame` call:
+
+```swift
+let currentTemp = try await camera.currentTempC()
+try await camera.setGain(100)
+let (x, y) = try await camera.binning() ?? (1, 1)
+try await camera.setFrame(x: 0, y: 0, width: 4096, height: 4096)
+```
+
+Every getter (`currentTempC`/`targetTempC`/`coolerPowerPercent`/`exposureCountdownSeconds`/`gain`/
+`offset`/`binning`/`frame`/`bitDepth`) reads a live INDI property directly and returns `nil` if
+that can't be determined right now — the same best-effort, UI-oriented contract `isCoolerOn`
+already documents, not an authoritative connection check. Every setter (`setGain`/`setOffset`/
+`setBinning`/`setFrame`/`setTargetTempC`) runs the same connectivity check every other `Camera`
+command does, then writes the property directly rather than starting a script run — no
+``ScriptRunStarted`` to poll, since a single property write settles immediately.
+
+``Camera/runSensorCalibrationSweep(gains:offsets:flatExposureSecondsList:biasCount:darkCount:biasExposureSeconds:locationId:)``
+runs a bias + flat-dark sensor-analysis sweep across every `(gain, offset,
+flatExposureSeconds)` combination — see <doc:CalibrationSweeps> for the flat-side counterpart and
+following a sweep to completion.
 
 ### Filter wheel and focuser
 
@@ -47,6 +73,22 @@ comment for the staleness caveat inherent to any state derived from
 try await filterWheel.selectFilter("Ha")
 try await focuser.setFocusPosition(15000)
 ```
+
+`FilterWheel` also exposes the read side of filter selection, and per-position name management
+independent of which filter is currently selected:
+
+```swift
+let selected = try await filterWheel.currentFilterName()
+try await filterWheel.setFilterName(slot: 3, name: "SII")
+let outcome = try await filterWheel.syncFilterNames()
+```
+
+`currentFilterName()`/`filterNames()` read the rig's own configured slot map (the "source of
+truth"); `liveFilterNames()` reads the connected driver's live `FILTER_NAME` property instead,
+independent of — and possibly disagreeing with — the rig's configuration. `setFilterName(slot:name:)`
+only ever edits the rig's saved configuration (via `saveRig`); it never touches the live driver as
+a side effect. `syncFilterNames()`/`adoptFilterNamesFromDriver()` are the deliberate, explicit
+steps for pushing/pulling between the two when they disagree.
 
 ### Connecting and disconnecting a device
 
@@ -73,7 +115,10 @@ exposure, INDIMCPKit wraps four composed, multi-step scripts that capture a whol
 frames in one call. Unlike the single-action commands above, these have no dedicated server-side
 tool of their own — they're reachable only through the generic script mechanism, so they're
 implemented as `INDIMCPClient` methods, with a thin ``Camera``-scoped wrapper over each that runs
-the same connectivity check as every other ``Camera`` command before delegating:
+the same connectivity check as every other ``Camera`` command before delegating. Every one of the
+four also takes the same `binningX`/`binningY`/`frameX`/`frameY`/`frameWidth`/`frameHeight`
+parameters as `captureFrame` itself, with the same defaulting: binning defaults to `1`, and the
+sub-frame arguments default to the full sensor unless all four are given together.
 
 ```swift
 let started = try await camera.captureLightSequence(
@@ -85,18 +130,18 @@ let started = try await camera.captureLightSequence(
 )
 ```
 
-- ``Camera/captureLightSequence(ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:gain:offset:locationId:)``
-  (``INDIMCPClient/captureLightSequence(rigId:ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:gain:offset:locationId:)``)
+- ``Camera/captureLightSequence(ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``
+  (``INDIMCPClient/captureLightSequence(rigId:ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``)
   — the imaging-session entry point: slews to `ra`/`dec`, selects a filter, moves the focuser,
   cools the camera, then captures `count` light frames.
-- ``Camera/captureDarkSequence(exposureSeconds:count:targetTempC:gain:offset:locationId:)``
-  (``INDIMCPClient/captureDarkSequence(rigId:exposureSeconds:count:targetTempC:gain:offset:locationId:)``)
+- ``Camera/captureDarkSequence(exposureSeconds:count:targetTempC:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``
+  (``INDIMCPClient/captureDarkSequence(rigId:exposureSeconds:count:targetTempC:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``)
   — cools the camera and captures `count` dark frames at a matching exposure length.
-- ``Camera/captureBiasSequence(count:exposureSeconds:gain:offset:locationId:)``
-  (``INDIMCPClient/captureBiasSequence(rigId:count:exposureSeconds:gain:offset:locationId:)``) —
+- ``Camera/captureBiasSequence(count:exposureSeconds:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``
+  (``INDIMCPClient/captureBiasSequence(rigId:count:exposureSeconds:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``) —
   captures `count` bias frames back to back, shutter closed.
-- ``Camera/captureFlatSequence(filterName:focusPosition:exposureSeconds:count:gain:offset:locationId:)``
-  (``INDIMCPClient/captureFlatSequence(rigId:filterName:focusPosition:exposureSeconds:count:gain:offset:locationId:)``)
+- ``Camera/captureFlatSequence(filterName:focusPosition:exposureSeconds:count:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``
+  (``INDIMCPClient/captureFlatSequence(rigId:filterName:focusPosition:exposureSeconds:count:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``)
   — selects a filter and focus position, then captures `count` flat frames. For sweeping a whole
   grid of flat/dark/bias settings in one run instead, see <doc:CalibrationSweeps>.
 

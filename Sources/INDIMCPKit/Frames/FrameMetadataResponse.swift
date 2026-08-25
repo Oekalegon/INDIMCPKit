@@ -90,8 +90,8 @@ public struct FrameMetadataResponse: Codable, Sendable, Hashable {
     /// Decodes from the server's wire JSON, defaulting `issues` to `[]` when the key is absent
     /// entirely — not just when it's explicitly `null`.
     ///
-    /// `issues` (INDIMCP-107) was added to `FrameMetadataResponse` after `list_frames`/
-    /// `get_frame_metadata` already shipped, so a server instance that hasn't yet been
+    /// `issues` (INDIMCP-107) was added to `FrameMetadataResponse` after `listFrames`/
+    /// `getFrameMetadata` already shipped, so a server instance that hasn't yet been
     /// redeployed past that point (this kit's own version-alignment story allows for some
     /// drift — see `alignedINDIMCPServerVersion`) sends a response with no `"issues"` key at
     /// all, not an empty array. A plain synthesized `Codable` conformance would throw

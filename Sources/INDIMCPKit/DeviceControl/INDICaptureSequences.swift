@@ -10,6 +10,40 @@ import MCP
 /// `run_script` mechanism server-side, so these wrappers call `runScript(scriptId:rigId:
 /// parameters:locationId:)` directly rather than a same-named tool, unlike `park`/`slew`/etc.
 extension INDIMCPClient {
+    /// Builds the `binningX`/`binningY`/`frameX`/`frameY`/`frameWidth`/`frameHeight` entries
+    /// shared by `captureFrame` and every capture-sequence wrapper below — `binningX`/`binningY`
+    /// are always sent (they default to 1, not "leave unchanged", unlike `gain`/`offset`);
+    /// `frameX`/`frameY`/`frameWidth`/`frameHeight` are sent only if given, so omitting them
+    /// leaves the full sensor in effect. Extracted once every one of these five call sites needed
+    /// the identical block, so a future change to this shape (e.g. a new ROI parameter) only
+    /// needs updating here.
+    func binningAndFrameParameters(
+        binningX: Int,
+        binningY: Int,
+        frameX: Int?,
+        frameY: Int?,
+        frameWidth: Int?,
+        frameHeight: Int?
+    ) -> [String: Value] {
+        var parameters: [String: Value] = [
+            "binningX": .int(binningX),
+            "binningY": .int(binningY),
+        ]
+        if let frameX {
+            parameters["frameX"] = .int(frameX)
+        }
+        if let frameY {
+            parameters["frameY"] = .int(frameY)
+        }
+        if let frameWidth {
+            parameters["frameWidth"] = .int(frameWidth)
+        }
+        if let frameHeight {
+            parameters["frameHeight"] = .int(frameHeight)
+        }
+        return parameters
+    }
+
     /// Cools the rig's camera to `targetTempC`, then captures `count` dark frames.
     ///
     /// Deliberately skips mount positioning, filter selection, and focus — only sensor
@@ -28,6 +62,13 @@ extension INDIMCPClient {
     ///     the camera's current gain setting unchanged.
     ///   - offset: Camera offset to apply to each frame, in the device's native units. Omit to
     ///     leave the camera's current offset setting unchanged.
+    ///   - binningX: Horizontal binning factor for each frame.
+    ///   - binningY: Vertical binning factor for each frame.
+    ///   - frameX: Sub-frame origin X, in unbinned pixels. Omit (with `frameY`/`frameWidth`/
+    ///     `frameHeight`) for the full sensor.
+    ///   - frameY: Sub-frame origin Y, in unbinned pixels.
+    ///   - frameWidth: Sub-frame width, in unbinned pixels.
+    ///   - frameHeight: Sub-frame height, in unbinned pixels.
     ///   - locationId: A saved `Observatory` identifying this sequence's celestial-context FITS
     ///     headers, best-effort.
     /// - Returns: A `ScriptRunStarted` acknowledging the newly started run, including whether
@@ -42,6 +83,12 @@ extension INDIMCPClient {
         targetTempC: Double = -10,
         gain: Double? = nil,
         offset: Double? = nil,
+        binningX: Int = 1,
+        binningY: Int = 1,
+        frameX: Int? = nil,
+        frameY: Int? = nil,
+        frameWidth: Int? = nil,
+        frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
         var parameters: [String: Value] = [
@@ -49,6 +96,12 @@ extension INDIMCPClient {
             "exposureSeconds": .double(exposureSeconds),
             "count": .int(count),
         ]
+        parameters.merge(
+            binningAndFrameParameters(
+                binningX: binningX, binningY: binningY,
+                frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
+            )
+        ) { _, new in new }
         if let gain {
             parameters["gain"] = .double(gain)
         }
@@ -79,6 +132,13 @@ extension INDIMCPClient {
     ///     the camera's current gain setting unchanged.
     ///   - offset: Camera offset to apply to each frame, in the device's native units. Omit to
     ///     leave the camera's current offset setting unchanged.
+    ///   - binningX: Horizontal binning factor for each frame.
+    ///   - binningY: Vertical binning factor for each frame.
+    ///   - frameX: Sub-frame origin X, in unbinned pixels. Omit (with `frameY`/`frameWidth`/
+    ///     `frameHeight`) for the full sensor.
+    ///   - frameY: Sub-frame origin Y, in unbinned pixels.
+    ///   - frameWidth: Sub-frame width, in unbinned pixels.
+    ///   - frameHeight: Sub-frame height, in unbinned pixels.
     ///   - locationId: A saved `Observatory` identifying this sequence's celestial-context FITS
     ///     headers, best-effort.
     /// - Returns: A `ScriptRunStarted` acknowledging the newly started run, including whether
@@ -92,12 +152,24 @@ extension INDIMCPClient {
         exposureSeconds: Double = 0,
         gain: Double? = nil,
         offset: Double? = nil,
+        binningX: Int = 1,
+        binningY: Int = 1,
+        frameX: Int? = nil,
+        frameY: Int? = nil,
+        frameWidth: Int? = nil,
+        frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
         var parameters: [String: Value] = [
             "exposureSeconds": .double(exposureSeconds),
             "count": .int(count),
         ]
+        parameters.merge(
+            binningAndFrameParameters(
+                binningX: binningX, binningY: binningY,
+                frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
+            )
+        ) { _, new in new }
         if let gain {
             parameters["gain"] = .double(gain)
         }
@@ -130,6 +202,13 @@ extension INDIMCPClient {
     ///     the camera's current gain setting unchanged.
     ///   - offset: Camera offset to apply to each frame, in the device's native units. Omit to
     ///     leave the camera's current offset setting unchanged.
+    ///   - binningX: Horizontal binning factor for each frame.
+    ///   - binningY: Vertical binning factor for each frame.
+    ///   - frameX: Sub-frame origin X, in unbinned pixels. Omit (with `frameY`/`frameWidth`/
+    ///     `frameHeight`) for the full sensor.
+    ///   - frameY: Sub-frame origin Y, in unbinned pixels.
+    ///   - frameWidth: Sub-frame width, in unbinned pixels.
+    ///   - frameHeight: Sub-frame height, in unbinned pixels.
     ///   - locationId: A saved `Observatory` identifying this sequence's celestial-context FITS
     ///     headers, best-effort.
     /// - Returns: A `ScriptRunStarted` acknowledging the newly started run, including whether
@@ -145,6 +224,12 @@ extension INDIMCPClient {
         count: Int,
         gain: Double? = nil,
         offset: Double? = nil,
+        binningX: Int = 1,
+        binningY: Int = 1,
+        frameX: Int? = nil,
+        frameY: Int? = nil,
+        frameWidth: Int? = nil,
+        frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
         var parameters: [String: Value] = [
@@ -153,6 +238,12 @@ extension INDIMCPClient {
             "exposureSeconds": .double(exposureSeconds),
             "count": .int(count),
         ]
+        parameters.merge(
+            binningAndFrameParameters(
+                binningX: binningX, binningY: binningY,
+                frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
+            )
+        ) { _, new in new }
         if let gain {
             parameters["gain"] = .double(gain)
         }
@@ -191,6 +282,13 @@ extension INDIMCPClient {
     ///     the camera's current gain setting unchanged.
     ///   - offset: Camera offset to apply to each frame, in the device's native units. Omit to
     ///     leave the camera's current offset setting unchanged.
+    ///   - binningX: Horizontal binning factor for each frame.
+    ///   - binningY: Vertical binning factor for each frame.
+    ///   - frameX: Sub-frame origin X, in unbinned pixels. Omit (with `frameY`/`frameWidth`/
+    ///     `frameHeight`) for the full sensor.
+    ///   - frameY: Sub-frame origin Y, in unbinned pixels.
+    ///   - frameWidth: Sub-frame width, in unbinned pixels.
+    ///   - frameHeight: Sub-frame height, in unbinned pixels.
     ///   - locationId: A saved `Observatory` identifying this sequence's celestial-context FITS
     ///     headers, best-effort.
     /// - Returns: A `ScriptRunStarted` acknowledging the newly started run, including whether
@@ -210,6 +308,12 @@ extension INDIMCPClient {
         targetTempC: Double = -10,
         gain: Double? = nil,
         offset: Double? = nil,
+        binningX: Int = 1,
+        binningY: Int = 1,
+        frameX: Int? = nil,
+        frameY: Int? = nil,
+        frameWidth: Int? = nil,
+        frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
         var parameters: [String: Value] = [
@@ -221,6 +325,12 @@ extension INDIMCPClient {
             "exposureSeconds": .double(exposureSeconds),
             "count": .int(count),
         ]
+        parameters.merge(
+            binningAndFrameParameters(
+                binningX: binningX, binningY: binningY,
+                frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
+            )
+        ) { _, new in new }
         if let objectName {
             parameters["objectName"] = .string(objectName)
         }

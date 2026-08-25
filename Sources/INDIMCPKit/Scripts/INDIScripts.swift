@@ -3,12 +3,12 @@ import MCP
 extension INDIMCPClient {
     /// Lists the id/name/description of every loaded script (built-in and uploaded).
     public func listScripts() async throws -> [ScriptSummary] {
-        try await callToolList("list_scripts", decoding: ScriptSummary.self)
+        try await callToolList("list_config", arguments: ["kind": .string("script")], decoding: ScriptSummary.self)
     }
 
     /// Returns the full definition of the script identified by `id`.
     public func getScript(id: String) async throws -> Script {
-        try await callTool("get_script", arguments: ["script_id": .string(id)], decoding: Script.self)
+        try await configurationTool(action: "get", kind: "script", configId: id, decoding: Script.self)
     }
 
     /// Uploads and saves a script, writing it to `user_scripts/<script.id>.yaml` on the server
@@ -21,9 +21,11 @@ extension INDIMCPClient {
     /// script). Refuses to replace an existing uploaded script unless `overwrite` is set, since
     /// reusing an `id` could otherwise silently destroy a previously saved script.
     public func saveScript(_ script: Script, overwrite: Bool = false) async throws -> Script {
-        try await callTool(
-            "save_script",
-            arguments: ["script": try Value(script), "overwrite": .bool(overwrite)],
+        try await configurationTool(
+            action: "save",
+            kind: "script",
+            config: try Value(script),
+            overwrite: overwrite,
             decoding: Script.self
         )
     }

@@ -3,16 +3,16 @@ import MCP
 extension INDIMCPClient {
     /// Lists the id/name of every configured observatory location.
     public func listObservatories() async throws -> [ObservatorySummary] {
-        try await callToolList("list_observatories", decoding: ObservatorySummary.self)
+        try await callToolList(
+            "list_config",
+            arguments: ["kind": .string("observatory")],
+            decoding: ObservatorySummary.self
+        )
     }
 
     /// Returns the full definition of the observatory location identified by `id`.
     public func getObservatory(id: String) async throws -> Observatory {
-        try await callTool(
-            "get_observatory",
-            arguments: ["observatory_id": .string(id)],
-            decoding: Observatory.self
-        )
+        try await configurationTool(action: "get", kind: "observatory", configId: id, decoding: Observatory.self)
     }
 
     /// Saves an observatory location definition, writing it to
@@ -21,9 +21,11 @@ extension INDIMCPClient {
     /// Refuses to replace an existing file unless `overwrite` is set, since reusing an `id`
     /// could otherwise silently destroy a previously saved location.
     public func saveObservatory(_ observatory: Observatory, overwrite: Bool = false) async throws -> Observatory {
-        try await callTool(
-            "save_observatory",
-            arguments: ["observatory": try Value(observatory), "overwrite": .bool(overwrite)],
+        try await configurationTool(
+            action: "save",
+            kind: "observatory",
+            config: try Value(observatory),
+            overwrite: overwrite,
             decoding: Observatory.self
         )
     }
@@ -33,6 +35,6 @@ extension INDIMCPClient {
     /// Never auto-selects or auto-saves a location. Requires messaging to be running
     /// (`startINDIMessaging`).
     public func draftObservatory() async throws -> ObservatoryDraft {
-        try await callTool("draft_observatory", decoding: ObservatoryDraft.self)
+        try await configurationTool(action: "draft", kind: "observatory", decoding: ObservatoryDraft.self)
     }
 }

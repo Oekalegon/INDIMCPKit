@@ -3,29 +3,44 @@ import MCP
 extension INDIMCPClient {
     /// Lists every INDI driver installed on the server's device, whether or not it is running.
     public func listINDIDriverCatalog() async throws -> [DriverInfo] {
-        try await callToolList("list_indi_driver_catalog", decoding: DriverInfo.self)
+        try await callToolList(
+            "list_indi_drivers",
+            arguments: ["scope": .string("catalog")],
+            decoding: DriverInfo.self
+        )
+    }
+
+    /// `manage_indi_infra(component: "driver", ...)`, shared by `startINDIDriver`/`stopINDIDriver`
+    /// — replaces the old dedicated `start_indi_driver`/`stop_indi_driver` tools (INDIMCP-114). See
+    /// also `INDIServerManagement.manageServerInfra` and `INDIMessaging.startINDIMessaging`/
+    /// `stopINDIMessaging`, the same tool's other two `component` branches.
+    ///
+    /// Uses `callToolUnion`, not `callTool` — see `INDIServerManagement.manageServerInfra`'s doc
+    /// comment for why every `manage_indi_infra` branch needs this (IMCPKIT-61).
+    private func manageDriverInfra(action: String, label: String) async throws -> DriverStatus {
+        try await callToolUnion(
+            "manage_indi_infra",
+            arguments: ["component": .string("driver"), "action": .string(action), "label": .string(label)],
+            decoding: DriverStatus.self
+        )
     }
 
     /// Starts the INDI driver identified by its catalog label (e.g. `"CCD Simulator"`).
     public func startINDIDriver(label: String) async throws -> DriverStatus {
-        try await callTool(
-            "start_indi_driver",
-            arguments: ["label": .string(label)],
-            decoding: DriverStatus.self
-        )
+        try await manageDriverInfra(action: "start", label: label)
     }
 
     /// Stops the running INDI driver identified by its catalog label.
     public func stopINDIDriver(label: String) async throws -> DriverStatus {
-        try await callTool(
-            "stop_indi_driver",
-            arguments: ["label": .string(label)],
-            decoding: DriverStatus.self
-        )
+        try await manageDriverInfra(action: "stop", label: label)
     }
 
     /// Lists all currently running INDI drivers.
     public func listRunningINDIDrivers() async throws -> [DriverStatus] {
-        try await callToolList("list_running_indi_drivers", decoding: DriverStatus.self)
+        try await callToolList(
+            "list_indi_drivers",
+            arguments: ["scope": .string("running")],
+            decoding: DriverStatus.self
+        )
     }
 }

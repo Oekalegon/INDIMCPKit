@@ -1,31 +1,49 @@
 import MCP
 
 extension INDIMCPClient {
+    /// `camera_action(rig_id, action, ...)`, shared by every method below — replaces the old
+    /// dedicated `cool_camera`/`cooler_on`/`cooler_off`/`abort_exposure`/`capture_frame` tools
+    /// (INDIMCP-116). Note the action is `"cool"`, not `"cool_camera"`.
+    private func cameraAction(rigId: String, action: String, extra: [String: Value] = [:]) async throws -> ScriptRunStarted {
+        var arguments: [String: Value] = ["rig_id": .string(rigId), "action": .string(action)]
+        arguments.merge(extra) { _, new in new }
+        return try await callTool("camera_action", arguments: arguments, decoding: ScriptRunStarted.self)
+    }
+
     /// Cools the rig's camera to `targetTempC` and waits for it to stabilize.
     public func coolCamera(
         rigId: String,
         targetTempC: Double = -10,
         timeoutSeconds: Double = 300
     ) async throws -> ScriptRunStarted {
-        try await callTool(
-            "cool_camera",
-            arguments: [
-                "rig_id": .string(rigId),
-                "targetTempC": .double(targetTempC),
-                "timeoutSeconds": .double(timeoutSeconds),
-            ],
-            decoding: ScriptRunStarted.self
+        try await cameraAction(
+            rigId: rigId,
+            action: "cool",
+            extra: ["targetTempC": .double(targetTempC), "timeoutSeconds": .double(timeoutSeconds)]
         )
     }
 
     /// Turns on the rig's camera cooler.
     public func coolerOn(rigId: String) async throws -> ScriptRunStarted {
-        try await callTool("cooler_on", arguments: ["rig_id": .string(rigId)], decoding: ScriptRunStarted.self)
+        try await cameraAction(rigId: rigId, action: "cooler_on")
     }
 
     /// Turns off the rig's camera cooler.
     public func coolerOff(rigId: String) async throws -> ScriptRunStarted {
-        try await callTool("cooler_off", arguments: ["rig_id": .string(rigId)], decoding: ScriptRunStarted.self)
+        try await cameraAction(rigId: rigId, action: "cooler_off")
+    }
+
+    /// Aborts the rig's camera's currently in-progress exposure, if any.
+    ///
+    /// Unconditionally sends `CCD_ABORT_EXPOSURE` and waits for the driver to confirm it,
+    /// regardless of whether an exposure is actually in progress — most drivers accept this as a
+    /// harmless no-op when idle, but that's driver convention, not something INDI's own protocol
+    /// guarantees.
+    ///
+    /// New capability (INDIMCP-116) — there was no server-side tool for this at all before
+    /// `camera_action` gained it as a new action.
+    public func abortExposure(rigId: String) async throws -> ScriptRunStarted {
+        try await cameraAction(rigId: rigId, action: "abort_exposure")
     }
 
     /// Captures a single frame from the rig's camera.
@@ -48,34 +66,25 @@ extension INDIMCPClient {
         frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
-        var arguments: [String: Value] = [
-            "rig_id": .string(rigId),
+        var extra: [String: Value] = [
             "exposureSeconds": .double(exposureSeconds),
             "frameType": .string(frameType.rawValue),
-            "binningX": .int(binningX),
-            "binningY": .int(binningY),
         ]
+        extra.merge(
+            binningAndFrameParameters(
+                binningX: binningX, binningY: binningY,
+                frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
+            )
+        ) { _, new in new }
         if let gain {
-            arguments["gain"] = .double(gain)
+            extra["gain"] = .double(gain)
         }
         if let offset {
-            arguments["offset"] = .double(offset)
-        }
-        if let frameX {
-            arguments["frameX"] = .int(frameX)
-        }
-        if let frameY {
-            arguments["frameY"] = .int(frameY)
-        }
-        if let frameWidth {
-            arguments["frameWidth"] = .int(frameWidth)
-        }
-        if let frameHeight {
-            arguments["frameHeight"] = .int(frameHeight)
+            extra["offset"] = .double(offset)
         }
         if let locationId {
-            arguments["location_id"] = .string(locationId)
+            extra["location_id"] = .string(locationId)
         }
-        return try await callTool("capture_frame", arguments: arguments, decoding: ScriptRunStarted.self)
+        return try await cameraAction(rigId: rigId, action: "capture_frame", extra: extra)
     }
 }

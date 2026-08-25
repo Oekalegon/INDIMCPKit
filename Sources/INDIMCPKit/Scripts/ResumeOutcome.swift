@@ -1,10 +1,12 @@
 /// The result of a `resumeScript` call.
 ///
 /// Mirrors INDIMCP-server's `resume_script` return type,
-/// `ScriptRunResumed | ScriptRunPauseRejected` (`server.py`) — decoded via the same `kind`-tag
-/// dispatch as `ScriptRunStatus`, just over a smaller set of cases. `ScriptRunPauseRejected` is
-/// reused here for a rejected resume too, per the server's own docstring: a run whose script
-/// isn't pausable, or one already terminal, can't be paused *or* resumed.
+/// `ScriptRunResumed | ScriptRunPauseRejected` (`server.py`) — `manage_script_run`'s
+/// `action: "resume"` branch calls this same underlying function; it isn't a standalone tool any
+/// more (INDIMCP-117). Decoded via the same `kind`-tag dispatch as `ScriptRunStatus`, just over a
+/// smaller set of cases. `ScriptRunPauseRejected` is reused here for a rejected resume too, per
+/// the server's own docstring: a run whose script isn't pausable, or one already terminal, can't
+/// be paused *or* resumed.
 public enum ResumeOutcome: Sendable, Hashable {
     /// The run was resumed.
     case resumed(ScriptRunResumed)

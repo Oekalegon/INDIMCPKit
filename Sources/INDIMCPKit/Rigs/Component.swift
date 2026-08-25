@@ -73,3 +73,32 @@ public struct Component: Codable, Sendable, Hashable {
         self.slots = slots
     }
 }
+
+extension Component {
+    /// Returns a copy of this component with `slots` replaced — every other field unchanged.
+    ///
+    /// Internal implementation detail for `FilterWheel.setFilterName`, since `Component` has no
+    /// general copy-with mechanism today and hand-copying all 14 stored properties at each call
+    /// site would silently drop a newly-added field wherever that got repeated. Kept narrowly
+    /// scoped to `slots` rather than generalized, since this is the only field anything in this
+    /// kit currently needs to patch in place.
+    func withSlots(_ slots: [Int: String]?) -> Component {
+        Component(
+            role: role,
+            id: id,
+            make: make,
+            model: model,
+            device: device,
+            apertureMm: apertureMm,
+            focalLengthMm: focalLengthMm,
+            cooled: cooled,
+            pixelsX: pixelsX,
+            pixelsY: pixelsY,
+            pixelSizeMicron: pixelSizeMicron,
+            bitDepth: bitDepth,
+            minPosition: minPosition,
+            maxPosition: maxPosition,
+            slots: slots
+        )
+    }
+}
