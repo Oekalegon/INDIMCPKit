@@ -329,6 +329,12 @@ public struct Camera: DeviceHandle {
         biasCount: Int,
         darkCount: Int,
         biasExposureSeconds: Double = 0,
+        binningX: Int = 1,
+        binningY: Int = 1,
+        frameX: Int? = nil,
+        frameY: Int? = nil,
+        frameWidth: Int? = nil,
+        frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> SensorCalibrationSweepStarted {
         try await client.ensureConnected(role: .camera, rigId: rigId)
@@ -340,6 +346,12 @@ public struct Camera: DeviceHandle {
             biasCount: biasCount,
             darkCount: darkCount,
             biasExposureSeconds: biasExposureSeconds,
+            binningX: binningX,
+            binningY: binningY,
+            frameX: frameX,
+            frameY: frameY,
+            frameWidth: frameWidth,
+            frameHeight: frameHeight,
             locationId: locationId
         )
     }

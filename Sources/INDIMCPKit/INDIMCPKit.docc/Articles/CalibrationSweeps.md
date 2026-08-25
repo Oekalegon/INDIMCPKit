@@ -9,14 +9,16 @@ product of the lists you pass in — as a single server-tracked run, rather than
 many individual `capture_*_sequence` calls by hand. There are two kinds, mirroring the two
 calibration-frame families:
 
-- ``INDIMCPClient/runSensorCalibrationSweep(rigId:gains:offsets:flatExposureSecondsList:biasCount:darkCount:biasExposureSeconds:locationId:)``
+- ``INDIMCPClient/runSensorCalibrationSweep(rigId:gains:offsets:flatExposureSecondsList:biasCount:darkCount:biasExposureSeconds:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``
   sweeps dark/bias frames — combinations of gain, offset, and exposure length.
-- ``INDIMCPClient/runFlatCalibrationSweep(rigId:gains:offsets:exposureSecondsList:filterName:focusPosition:count:locationId:)``
+- ``INDIMCPClient/runFlatCalibrationSweep(rigId:gains:offsets:exposureSecondsList:filterName:focusPosition:count:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``
   sweeps flat frames — the same gain/offset/exposure grid, plus a fixed filter and focus position
   shared across every combination.
 
 Every argument list must be non-empty, and combination order is always gains → offsets →
-exposures (outermost to innermost).
+exposures (outermost to innermost). Like `captureFrame` and the capture-sequence wrappers,
+`binningX`/`binningY` (default `1`) and the optional `frameX`/`frameY`/`frameWidth`/`frameHeight`
+sub-frame are shared across every combination in the sweep rather than varied per combination.
 
 ```swift
 let started = try await client.runSensorCalibrationSweep(

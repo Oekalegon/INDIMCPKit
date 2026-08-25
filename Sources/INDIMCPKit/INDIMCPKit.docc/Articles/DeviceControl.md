@@ -62,7 +62,7 @@ already documents, not an authoritative connection check. Every setter (`setGain
 command does, then writes the property directly rather than starting a script run — no
 ``ScriptRunStarted`` to poll, since a single property write settles immediately.
 
-``Camera/runSensorCalibrationSweep(gains:offsets:flatExposureSecondsList:biasCount:darkCount:biasExposureSeconds:locationId:)``
+``Camera/runSensorCalibrationSweep(gains:offsets:flatExposureSecondsList:biasCount:darkCount:biasExposureSeconds:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``
 runs a bias + flat-dark sensor-analysis sweep across every `(gain, offset,
 flatExposureSeconds)` combination — see <doc:CalibrationSweeps> for the flat-side counterpart and
 following a sweep to completion.
