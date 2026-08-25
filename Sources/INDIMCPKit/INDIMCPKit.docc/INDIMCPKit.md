@@ -38,10 +38,10 @@ generically through ``Script`` and the script-run lifecycle types.
 - ``ObservableDevice``
 - ``DeviceControlError``
 - ``FrameType``
-- ``INDIMCPClient/captureLightSequence(rigId:ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:gain:offset:locationId:)``
-- ``INDIMCPClient/captureDarkSequence(rigId:exposureSeconds:count:targetTempC:gain:offset:locationId:)``
-- ``INDIMCPClient/captureBiasSequence(rigId:count:exposureSeconds:gain:offset:locationId:)``
-- ``INDIMCPClient/captureFlatSequence(rigId:filterName:focusPosition:exposureSeconds:count:gain:offset:locationId:)``
+- ``INDIMCPClient/captureLightSequence(rigId:ra:dec:filterName:focusPosition:exposureSeconds:count:objectName:targetTempC:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``
+- ``INDIMCPClient/captureDarkSequence(rigId:exposureSeconds:count:targetTempC:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``
+- ``INDIMCPClient/captureBiasSequence(rigId:count:exposureSeconds:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``
+- ``INDIMCPClient/captureFlatSequence(rigId:filterName:focusPosition:exposureSeconds:count:gain:offset:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``
 
 ### Rigs and observatories
 
