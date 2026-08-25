@@ -48,26 +48,23 @@ extension INDIMCPClient {
         biasExposureSeconds: Double = 0,
         locationId: String? = nil
     ) async throws -> SensorCalibrationSweepStarted {
-        // Argument keys mirror INDIMCP-server's run_sensor_calibration_sweep parameter names
-        // exactly, including its inconsistent snake_case/camelCase mix (rig_id/location_id vs.
+        // Argument keys mirror INDIMCP-server's run_calibration_sweep parameter names exactly,
+        // including its inconsistent snake_case/camelCase mix (rig_id/location_id vs.
         // gains/offsets/flatExposureSecondsList/biasCount/darkCount/biasExposureSeconds) — not a
         // typo, don't "fix" the casing to match this file's other calls or the server won't
         // recognize the argument.
-        var arguments: [String: Value] = [
-            "rig_id": .string(rigId),
-            "gains": .array(gains.map { .double($0) }),
-            "offsets": .array(offsets.map { .double($0) }),
-            "flatExposureSecondsList": .array(flatExposureSecondsList.map { .double($0) }),
-            "biasCount": .int(biasCount),
-            "darkCount": .int(darkCount),
-            "biasExposureSeconds": .double(biasExposureSeconds),
-        ]
-        if let locationId {
-            arguments["location_id"] = .string(locationId)
-        }
-        return try await callTool(
-            "run_sensor_calibration_sweep",
-            arguments: arguments,
+        try await runCalibrationSweepTool(
+            kind: "sensor",
+            rigId: rigId,
+            extra: [
+                "gains": .array(gains.map { .double($0) }),
+                "offsets": .array(offsets.map { .double($0) }),
+                "flatExposureSecondsList": .array(flatExposureSecondsList.map { .double($0) }),
+                "biasCount": .int(biasCount),
+                "darkCount": .int(darkCount),
+                "biasExposureSeconds": .double(biasExposureSeconds),
+            ],
+            locationId: locationId,
             decoding: SensorCalibrationSweepStarted.self
         )
     }
@@ -81,9 +78,9 @@ extension INDIMCPClient {
     /// - Throws: `INDIMCPClientError.toolCallFailed` if `sweepId` is unknown to the server (never
     ///   started, or evicted after enough other sweeps finished since).
     public func getSensorCalibrationSweepStatus(sweepId: String) async throws -> SensorCalibrationSweepStatus {
-        try await callToolUnion(
-            "get_sensor_calibration_sweep_status",
-            arguments: ["sweep_id": .string(sweepId)],
+        try await manageCalibrationSweepTool(
+            sweepId: sweepId,
+            action: "status",
             decoding: SensorCalibrationSweepStatus.self
         )
     }
@@ -104,9 +101,9 @@ extension INDIMCPClient {
     ///   failed) if cancellation lost that race.
     /// - Throws: `INDIMCPClientError.toolCallFailed` if `sweepId` is unknown to the server.
     public func cancelSensorCalibrationSweep(sweepId: String) async throws -> SensorCalibrationSweepStatus {
-        try await callToolUnion(
-            "cancel_sensor_calibration_sweep",
-            arguments: ["sweep_id": .string(sweepId)],
+        try await manageCalibrationSweepTool(
+            sweepId: sweepId,
+            action: "cancel",
             decoding: SensorCalibrationSweepStatus.self
         )
     }
