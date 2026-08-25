@@ -7,13 +7,18 @@ extension INDIMCPClient {
     /// confirmed received (`confirmFrameTransfer`), `false` only ones still waiting to be
     /// retrieved — useful for checking what's left to download before calling
     /// `purgeTransferredFrames`.
+    ///
+    /// Uses `callToolList`, not `callTool`: `frames`'s declared Python return type,
+    /// `list[FrameMetadataResponse] | FrameMetadataResponse`, is a `Union` FastMCP wraps as
+    /// `{"result": ...}` regardless of which branch actually runs — `action: "list"` is the
+    /// list-shaped branch, needing `callToolList`'s `[Output]` unwrapping (IMCPKIT-61).
     public func listFrames(
         runId: String? = nil,
         device: String? = nil,
         since: String? = nil,
         transferred: Bool? = nil
     ) async throws -> [FrameMetadataResponse] {
-        var arguments: [String: Value] = [:]
+        var arguments: [String: Value] = ["action": .string("list")]
         if let runId {
             arguments["run_id"] = .string(runId)
         }
@@ -26,14 +31,17 @@ extension INDIMCPClient {
         if let transferred {
             arguments["transferred"] = .bool(transferred)
         }
-        return try await callToolList("list_frames", arguments: arguments, decoding: FrameMetadataResponse.self)
+        return try await callToolList("frames", arguments: arguments, decoding: FrameMetadataResponse.self)
     }
 
     /// Returns the metadata for a single captured frame identified by `frameId`.
+    ///
+    /// Uses `callToolUnion`, not `callTool`: `action: "get"` is the object-shaped branch of
+    /// `frames`'s declared `Union` return type — see `listFrames`'s doc comment (IMCPKIT-61).
     public func getFrameMetadata(frameId: String) async throws -> FrameMetadataResponse {
-        try await callTool(
-            "get_frame_metadata",
-            arguments: ["frame_id": .string(frameId)],
+        try await callToolUnion(
+            "frames",
+            arguments: ["action": .string("get"), "frame_id": .string(frameId)],
             decoding: FrameMetadataResponse.self
         )
     }
@@ -42,10 +50,14 @@ extension INDIMCPClient {
     /// verifying the bytes `downloadFrame` fetched were received intact. This is what makes a
     /// frame eligible for `deleteFrame`/`purgeTransferredFrames` later, so confirming a transfer
     /// that didn't really complete risks the server losing the only copy of that frame.
+    ///
+    /// Uses `callToolUnion`, not `callTool`: `manage_frame`'s declared Python return type,
+    /// `FrameMetadata | list[FrameMetadata]`, is also a `Union` FastMCP wraps — `action:
+    /// "confirm_transfer"` is an object-shaped branch (IMCPKIT-61).
     public func confirmFrameTransfer(frameId: String) async throws -> FrameMetadata {
-        try await callTool(
-            "confirm_frame_transfer",
-            arguments: ["frame_id": .string(frameId)],
+        try await callToolUnion(
+            "manage_frame",
+            arguments: ["action": .string("confirm_transfer"), "frame_id": .string(frameId)],
             decoding: FrameMetadata.self
         )
     }
@@ -56,10 +68,18 @@ extension INDIMCPClient {
     /// unless `requireTransferred` is explicitly set to `false` — this is destructive on the
     /// actual science data the server exists to capture, so it's safe by default rather than
     /// trusting every caller to check first.
+    ///
+    /// Uses `callToolUnion` — `action: "delete"` is another object-shaped branch of
+    /// `manage_frame`'s `Union` return type; see `confirmFrameTransfer`'s doc comment
+    /// (IMCPKIT-61).
     public func deleteFrame(frameId: String, requireTransferred: Bool = true) async throws -> FrameMetadata {
-        try await callTool(
-            "delete_frame",
-            arguments: ["frame_id": .string(frameId), "require_transferred": .bool(requireTransferred)],
+        try await callToolUnion(
+            "manage_frame",
+            arguments: [
+                "action": .string("delete"),
+                "frame_id": .string(frameId),
+                "require_transferred": .bool(requireTransferred),
+            ],
             decoding: FrameMetadata.self
         )
     }
@@ -70,10 +90,14 @@ extension INDIMCPClient {
     /// Never runs automatically — this is the only way old frames get cleaned up. Only ever
     /// considers frames already confirmed transferred (`confirmFrameTransfer`), regardless of
     /// age; a frame not yet confirmed received is never deleted by this call.
+    ///
+    /// Uses `callToolList`, not `callToolUnion`: `action: "purge"` is `manage_frame`'s
+    /// list-shaped branch, returning `list[FrameMetadata]` — see `confirmFrameTransfer`'s doc
+    /// comment for why the tool as a whole needs unwrapping either way (IMCPKIT-61).
     public func purgeTransferredFrames(olderThanDays: Double) async throws -> [FrameMetadata] {
         try await callToolList(
-            "purge_transferred_frames",
-            arguments: ["older_than_days": .double(olderThanDays)],
+            "manage_frame",
+            arguments: ["action": .string("purge"), "older_than_days": .double(olderThanDays)],
             decoding: FrameMetadata.self
         )
     }
