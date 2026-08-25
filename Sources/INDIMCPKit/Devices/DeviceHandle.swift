@@ -37,3 +37,28 @@ extension DeviceHandle {
         try await client.isDeviceConnected(role: role, rigId: rigId)
     }
 }
+
+/// The rig's single component declaring `role` — `nil` if it declares zero or more than one.
+/// Shared by read-only, best-effort callers (`Camera`'s property getters, `FilterWheel`'s)
+/// that have nothing sensible to read either way when a role is ambiguous — contrast
+/// `resolveUniqueComponent(for:in:rigId:)`, which throws instead, for callers that need to
+/// mutate or otherwise commit to exactly one component.
+func uniqueComponent(for role: Role, in rig: Rig) -> Component? {
+    let matches = rig.components.filter { $0.role == role }
+    return matches.count == 1 ? matches.first : nil
+}
+
+/// The rig's single component declaring `role`, throwing a clear `DeviceControlError` if it
+/// declares zero (`.noComponentForRole`) or more than one (`.ambiguousComponentForRole`) —
+/// for callers that need to resolve or mutate exactly one component and can't just return a
+/// soft `nil`/empty result the way `uniqueComponent(for:in:)`'s read-only callers can.
+func resolveUniqueComponent(for role: Role, in rig: Rig, rigId: String) throws -> Component {
+    let matches = rig.components.filter { $0.role == role }
+    guard let component = matches.first, matches.count == 1 else {
+        if matches.isEmpty {
+            throw DeviceControlError.noComponentForRole(role: role, rigId: rigId)
+        }
+        throw DeviceControlError.ambiguousComponentForRole(role: role, rigId: rigId)
+    }
+    return component
+}

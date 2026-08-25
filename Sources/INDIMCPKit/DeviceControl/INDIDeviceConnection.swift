@@ -7,8 +7,8 @@ extension INDIMCPClient {
     /// which establishes the MCP session itself — a wholly different, unrelated connection.
     public func connectDevice(rigId: String, role: String) async throws -> ScriptRunStarted {
         try await callTool(
-            "connect",
-            arguments: ["rig_id": .string(rigId), "role": .string(role)],
+            "set_connection",
+            arguments: ["rig_id": .string(rigId), "role": .string(role), "connected": .bool(true)],
             decoding: ScriptRunStarted.self
         )
     }
@@ -20,8 +20,8 @@ extension INDIMCPClient {
     /// unrelated disconnection.
     public func disconnectDevice(rigId: String, role: String) async throws -> ScriptRunStarted {
         try await callTool(
-            "disconnect",
-            arguments: ["rig_id": .string(rigId), "role": .string(role)],
+            "set_connection",
+            arguments: ["rig_id": .string(rigId), "role": .string(role), "connected": .bool(false)],
             decoding: ScriptRunStarted.self
         )
     }

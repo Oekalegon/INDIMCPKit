@@ -33,31 +33,315 @@ public struct Camera: DeviceHandle {
         return try await client.coolerOff(rigId: rigId)
     }
 
-    /// Whether the cooler is currently on, going by the most recently observed `CCD_COOLER`
-    /// event on this rig's camera device — `nil` if that can't be determined (no `CCD_COOLER`
-    /// event seen yet, e.g. before INDI messaging has streamed one, or this rig's camera
-    /// component has no `device` name resolved).
+    /// Aborts the camera's currently in-progress exposure, if any. See
+    /// `INDIMCPClient.abortExposure(rigId:)` for the no-exposure-running caveat.
+    public func abortExposure() async throws -> ScriptRunStarted {
+        try await client.ensureConnected(role: .camera, rigId: rigId)
+        return try await client.abortExposure(rigId: rigId)
+    }
+
+    /// Whether the cooler is currently on, read directly from this rig's camera device's live
+    /// `CCD_COOLER` property — `nil` if that can't be determined (this rig's camera component has
+    /// no `device` name resolved, the device has never reported `CCD_COOLER` at all, or the
+    /// server has never seen the device — e.g. before INDI messaging has connected to it).
     ///
-    /// UI-oriented, not authoritative: this is only ever as fresh as the last streamed event
-    /// (`listINDIMessages` isn't a live subscription, just the most recent snapshot), the same
-    /// caveat `INDIMCPClient.isDeviceConnected` carries.
+    /// `nil` here specifically means "can't currently tell," not "confirmed off" — it also covers
+    /// any other failure from the underlying `getDeviceProperties` call (a transport/protocol
+    /// error, INDI messaging not having been started, etc.), which this swallows rather than
+    /// throws, matching this method's existing UI-oriented, best-effort contract. Callers that
+    /// need to distinguish "not yet known" from "something's actually broken" should call
+    /// `getDeviceProperties(device:)` themselves instead of relying on this.
+    ///
+    /// UI-oriented, not authoritative: reflects whatever `getDeviceProperties` currently reports,
+    /// same caveat `INDIMCPClient.isDeviceConnected` carries. Was previously derived from the most
+    /// recently observed `CCD_COOLER` event via `listINDIMessages`, which INDIMCP-114 removed with
+    /// no replacement tool — this reads the live property directly instead (IMCPKIT-28).
     public func isCoolerOn() async throws -> Bool? {
-        let rig = try await client.getRig(id: rigId)
-        guard let device = rig.components.first(where: { $0.role == .camera })?.device else {
+        guard let properties = try await liveProperties() else {
             return nil
         }
-        // Widening limits, not a single fixed one: CCD_COOLER only fires when the switch
-        // changes, but CCD_TEMPERATURE (and anything else on this device) can update far more
-        // often — most visibly during coolCamera's own wait_for step, exactly when a caller is
-        // most likely to be asking this. A too-small window would let those crowd CCD_COOLER out
-        // and report "unknown" for a state that's actually still perfectly well known.
-        for limit in [20, 100, 500] {
-            let events = try await client.listINDIMessages(device: device, limit: limit)
-            if let latest = events.first(where: { $0.name == "CCD_COOLER" }) {
-                return latest.elements?["COOLER_ON"] == "On"
-            }
+        return Camera.coolerOn(from: properties)
+    }
+
+    // MARK: Cooler temperature/power
+
+    /// Current sensor temperature, in Celsius — `nil` if that can't be determined (same reasons
+    /// as `isCoolerOn`).
+    public func currentTempC() async throws -> Double? {
+        guard let properties = try await liveProperties() else {
+            return nil
         }
-        return nil
+        return Camera.doubleElement("CCD_TEMPERATURE", "CCD_TEMPERATURE_VALUE", from: properties)
+    }
+
+    /// The temperature the cooler is currently driving toward. Caveat: INDI's `CCD_TEMPERATURE`
+    /// carries only one value — the driver doesn't separately report "requested" vs. "actual",
+    /// so between a `setTargetTempC`/`coolCamera` call and the sensor settling, this reads the
+    /// same live, still-changing value as `currentTempC()`. Kept as a distinct method (rather
+    /// than documented as an alias) so call sites read as intent, and so this can be corrected
+    /// transparently if a driver-specific target readback ever becomes available.
+    public func targetTempC() async throws -> Double? {
+        try await currentTempC()
+    }
+
+    /// Sets the cooler's target temperature without waiting for it to stabilize — unlike
+    /// `coolCamera`, which blocks until settled. Returns once the driver acknowledges the new
+    /// setpoint.
+    public func setTargetTempC(_ targetTempC: Double) async throws {
+        let device = try await connectedDeviceName()
+        _ = try await client.sendINDIProperty(
+            device: device,
+            name: "CCD_TEMPERATURE",
+            elements: ["CCD_TEMPERATURE_VALUE": String(targetTempC)]
+        )
+    }
+
+    /// Cooler power, 0–100 (percent) — `nil` if this driver doesn't report `CCD_COOLER_POWER`
+    /// (driver-dependent — not every camera driver exposes it), or for the same reasons
+    /// `isCoolerOn`'s `nil` case applies.
+    ///
+    /// - Note: `CCD_COOLER_POWER`'s element name (`CCD_COOLER_VALUE`) is asserted from INDI's
+    ///   standard property list, not confirmed against a real driver's property dump — verify
+    ///   against one before relying on this in a safety-relevant path.
+    public func coolerPowerPercent() async throws -> Double? {
+        guard let properties = try await liveProperties() else {
+            return nil
+        }
+        return Camera.doubleElement("CCD_COOLER_POWER", "CCD_COOLER_VALUE", from: properties)
+    }
+
+    // MARK: Exposure
+
+    /// Seconds remaining on the exposure currently in progress — `nil` if that can't be
+    /// determined (same reasons as `isCoolerOn`'s `nil` case).
+    ///
+    /// - Note: Expected to read `0` once an exposure finishes, matching how most INDI camera
+    ///   drivers report `CCD_EXPOSURE_VALUE`, but this isn't guaranteed by INDI's protocol and
+    ///   varies by driver — treat a `0` as "not counting down," not necessarily "definitely idle."
+    public func exposureCountdownSeconds() async throws -> Double? {
+        guard let properties = try await liveProperties() else {
+            return nil
+        }
+        return Camera.doubleElement("CCD_EXPOSURE", "CCD_EXPOSURE_VALUE", from: properties)
+    }
+
+    // MARK: Sensor settings (standing state, independent of any one captureFrame call)
+
+    /// Current sensor gain — `nil` if that can't be determined (same reasons as `isCoolerOn`'s
+    /// `nil` case), or if this driver doesn't expose `CCD_GAIN` as a standing setting at all
+    /// (some drivers only accept gain per-exposure, via `captureFrame(gain:)`).
+    public func gain() async throws -> Double? {
+        guard let properties = try await liveProperties() else {
+            return nil
+        }
+        return Camera.doubleElement("CCD_GAIN", "GAIN", from: properties)
+    }
+
+    /// Sets the sensor gain as standing state, independent of any one `captureFrame` call.
+    ///
+    /// - Warning: Changing this while an exposure is in progress (`exposureCountdownSeconds()` is
+    ///   non-`nil`/non-zero) is driver-dependent — some drivers reject the change outright, others
+    ///   apply it silently to the exposure already in flight, corrupting it. Check
+    ///   `exposureCountdownSeconds()` first if that matters for your use case; this call doesn't
+    ///   check it for you.
+    public func setGain(_ gain: Double) async throws {
+        let device = try await connectedDeviceName()
+        _ = try await client.sendINDIProperty(device: device, name: "CCD_GAIN", elements: ["GAIN": String(gain)])
+    }
+
+    /// Current sensor offset — `nil` for the same reasons as `gain()`'s `nil` case.
+    public func offset() async throws -> Double? {
+        guard let properties = try await liveProperties() else {
+            return nil
+        }
+        return Camera.doubleElement("CCD_OFFSET", "OFFSET", from: properties)
+    }
+
+    /// Sets the sensor offset as standing state, independent of any one `captureFrame` call.
+    ///
+    /// - Warning: Same in-progress-exposure caveat as `setGain(_:)` — check
+    ///   `exposureCountdownSeconds()` first if that matters for your use case.
+    public func setOffset(_ offset: Double) async throws {
+        let device = try await connectedDeviceName()
+        _ = try await client.sendINDIProperty(device: device, name: "CCD_OFFSET", elements: ["OFFSET": String(offset)])
+    }
+
+    /// Current pixel binning — `nil` if that can't be determined (same reasons as `isCoolerOn`'s
+    /// `nil` case).
+    public func binning() async throws -> (x: Int, y: Int)? {
+        guard let properties = try await liveProperties() else {
+            return nil
+        }
+        return Camera.binning(from: properties)
+    }
+
+    /// Sets pixel binning as standing state, independent of any one `captureFrame` call.
+    ///
+    /// - Warning: Same in-progress-exposure caveat as `setGain(_:)` — check
+    ///   `exposureCountdownSeconds()` first if that matters for your use case. Binning is
+    ///   especially likely to be rejected or to produce a malformed frame if changed mid-exposure,
+    ///   since it changes the sensor readout geometry the driver is already midway through.
+    public func setBinning(x: Int, y: Int) async throws {
+        let device = try await connectedDeviceName()
+        _ = try await client.sendINDIProperty(
+            device: device,
+            name: "CCD_BINNING",
+            elements: ["HOR_BIN": String(x), "VER_BIN": String(y)]
+        )
+    }
+
+    /// Current sub-frame ROI (`x`/`y` top-left corner, `width`/`height`, all in pixels) — `nil`
+    /// if that can't be determined (same reasons as `isCoolerOn`'s `nil` case).
+    ///
+    /// - Note: `CCD_FRAME`'s element names (`X`/`Y`/`WIDTH`/`HEIGHT`) are asserted from INDI's
+    ///   standard property list, not confirmed against a real driver's property dump — verify
+    ///   against one before relying on this in a safety-relevant path.
+    public func frame() async throws -> (x: Int, y: Int, width: Int, height: Int)? {
+        guard let properties = try await liveProperties() else {
+            return nil
+        }
+        return Camera.frame(from: properties)
+    }
+
+    /// Sets the sub-frame ROI as standing state, independent of any one `captureFrame` call. Set
+    /// all four together for a sub-frame, or to the sensor's full dimensions to reset it.
+    ///
+    /// - Warning: Same in-progress-exposure caveat as `setGain(_:)` — check
+    ///   `exposureCountdownSeconds()` first if that matters for your use case. Like binning, a
+    ///   changed ROI mid-exposure is especially likely to be rejected or produce a malformed
+    ///   frame, since it changes the sensor readout geometry the driver is already midway through.
+    public func setFrame(x: Int, y: Int, width: Int, height: Int) async throws {
+        let device = try await connectedDeviceName()
+        _ = try await client.sendINDIProperty(
+            device: device,
+            name: "CCD_FRAME",
+            elements: ["X": String(x), "Y": String(y), "WIDTH": String(width), "HEIGHT": String(height)]
+        )
+    }
+
+    /// The sensor's analog-to-digital bit depth, from static `CCD_INFO` — read-only. No `set`:
+    /// only some CMOS drivers support switching capture format at all (`CCD_CAPTURE_FORMAT`), and
+    /// INDIMCP-server doesn't currently wrap it. Revisit if a concrete camera needs it.
+    public func bitDepth() async throws -> Int? {
+        guard let properties = try await liveProperties() else {
+            return nil
+        }
+        return Camera.intElement("CCD_INFO", "CCD_BITSPERPIXEL", from: properties)
+    }
+
+    /// Parses whether the cooler is on from an already-fetched `CCD_COOLER` snapshot — `nil` if
+    /// that property hasn't been observed at all. Pure and offline-testable by design: this is
+    /// the exact logic that once had a bug (`... == "On"` silently returning `false` instead of
+    /// `nil` when `CCD_COOLER` was absent, via Swift's optional-chaining-then-compare collapsing
+    /// to a concrete `Bool`) which only live verification happened to catch, since nothing here
+    /// could be tested without a real server before this was split out. See `isCoolerOn()`.
+    static func coolerOn(from properties: DeviceProperties) -> Bool? {
+        guard let value = properties.properties["CCD_COOLER"]?.elements["COOLER_ON"] else {
+            return nil
+        }
+        return value == "On"
+    }
+
+    /// Parses a `Double`-valued element from an already-fetched property snapshot — `nil` if
+    /// `propertyName`/`elementName` isn't present. Pure and offline-testable; shared by every
+    /// `Double`-returning getter above.
+    static func doubleElement(_ propertyName: String, _ elementName: String, from properties: DeviceProperties) -> Double? {
+        guard let value = properties.properties[propertyName]?.elements[elementName] else {
+            return nil
+        }
+        return Double(value)
+    }
+
+    /// Parses an `Int`-valued element from an already-fetched property snapshot, tolerating
+    /// INDI's float-on-the-wire number formatting (see `parseINDIInt`) — `nil` if
+    /// `propertyName`/`elementName` isn't present or isn't parseable. Pure and offline-testable;
+    /// shared by `bitDepth()` and (indirectly, via their own dedicated parsers) `binning()`/
+    /// `frame()`.
+    static func intElement(_ propertyName: String, _ elementName: String, from properties: DeviceProperties) -> Int? {
+        parseINDIInt(properties.properties[propertyName]?.elements[elementName])
+    }
+
+    /// Parses `CCD_BINNING`'s `HOR_BIN`/`VER_BIN` elements from an already-fetched property
+    /// snapshot — `nil` unless both are present and parseable. Pure and offline-testable.
+    static func binning(from properties: DeviceProperties) -> (x: Int, y: Int)? {
+        guard let elements = properties.properties["CCD_BINNING"]?.elements,
+            let x = parseINDIInt(elements["HOR_BIN"]),
+            let y = parseINDIInt(elements["VER_BIN"])
+        else {
+            return nil
+        }
+        return (x: x, y: y)
+    }
+
+    /// Parses `CCD_FRAME`'s `X`/`Y`/`WIDTH`/`HEIGHT` elements from an already-fetched property
+    /// snapshot — `nil` unless all four are present and parseable. Pure and offline-testable.
+    static func frame(from properties: DeviceProperties) -> (x: Int, y: Int, width: Int, height: Int)? {
+        guard let elements = properties.properties["CCD_FRAME"]?.elements,
+            let x = parseINDIInt(elements["X"]),
+            let y = parseINDIInt(elements["Y"]),
+            let width = parseINDIInt(elements["WIDTH"]),
+            let height = parseINDIInt(elements["HEIGHT"])
+        else {
+            return nil
+        }
+        return (x: x, y: y, width: width, height: height)
+    }
+
+    /// Best-effort live property snapshot for this rig's camera device — `nil` if the rig has no
+    /// single `camera`-role component (missing or ambiguous), that component has no `device` name
+    /// resolved, or the property read itself fails for any reason (transport/protocol error, INDI
+    /// messaging not started, device never seen by the server, ...). Shared by every property
+    /// getter above; see `isCoolerOn`'s doc comment for why collapsing every failure reason into
+    /// one `nil` is this method's deliberate contract, not an oversight.
+    private func liveProperties() async throws -> DeviceProperties? {
+        let rig = try await client.getRig(id: rigId)
+        guard let device = uniqueComponent(for: .camera, in: rig)?.device else {
+            return nil
+        }
+        return try? await client.getDeviceProperties(device: device)
+    }
+
+    /// Ensures this rig's camera is connected, then resolves its INDI device name — every setter
+    /// above needs both before sending a raw property write, unlike the getters above (which
+    /// tolerate an unresolved/disconnected or ambiguous device as part of their best-effort `nil`
+    /// contract).
+    ///
+    /// - Throws: `DeviceControlError.noComponentForRole` if the rig has no `camera`-role
+    ///   component, or `DeviceControlError.ambiguousComponentForRole` if it has more than one —
+    ///   every setter always writes to exactly one component's device, never guesses which.
+    private func connectedDeviceName() async throws -> String {
+        try await client.ensureConnected(role: .camera, rigId: rigId)
+        let rig = try await client.getRig(id: rigId)
+        let component = try resolveUniqueComponent(for: .camera, in: rig, rigId: rigId)
+        guard let device = component.device else {
+            throw DeviceControlError.noComponentForRole(role: .camera, rigId: rigId)
+        }
+        return device
+    }
+
+    /// Runs a bias + flat-dark sensor-analysis sweep across every `(gain, offset,
+    /// flatExposureSeconds)` combination. See `INDIMCPClient.runSensorCalibrationSweep` for the
+    /// full parameter set and combination-ordering rules.
+    public func runSensorCalibrationSweep(
+        gains: [Double],
+        offsets: [Double],
+        flatExposureSecondsList: [Double],
+        biasCount: Int,
+        darkCount: Int,
+        biasExposureSeconds: Double = 0,
+        locationId: String? = nil
+    ) async throws -> SensorCalibrationSweepStarted {
+        try await client.ensureConnected(role: .camera, rigId: rigId)
+        return try await client.runSensorCalibrationSweep(
+            rigId: rigId,
+            gains: gains,
+            offsets: offsets,
+            flatExposureSecondsList: flatExposureSecondsList,
+            biasCount: biasCount,
+            darkCount: darkCount,
+            biasExposureSeconds: biasExposureSeconds,
+            locationId: locationId
+        )
     }
 
     /// Captures a single frame. See `INDIMCPClient.captureFrame` for the full parameter set.

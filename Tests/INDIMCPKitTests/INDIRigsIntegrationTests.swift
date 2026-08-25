@@ -15,7 +15,7 @@ import Testing
 /// way to remove them via the API — only a scratch directory you can throw away afterwards makes
 /// that harmless.
 ///
-/// Uses a UUID-suffixed rig id and never asserts the exact contents of `list_rigs`, since a
+/// Uses a UUID-suffixed rig id and never asserts the exact contents of `listRigs()`, since a
 /// long-lived manual server may already have other rigs saved.
 @Suite("INDI rigs (live server)")
 struct INDIRigsIntegrationTests {

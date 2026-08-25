@@ -102,9 +102,11 @@ public final class INDIMCPClient: Sendable {
     ///
     /// Same reasoning as `callToolList`: a `Union` isn't a single object schema either, so
     /// FastMCP wraps it as `{"result": ...}` just like a bare list — confirmed against the real
-    /// server's wire format for `get_script_status`/`cancel_script`/`pause_script`/
-    /// `resume_script`. `Output` here is expected to be a manually `Decodable` discriminated-union
-    /// type (switching on a `kind`/similar tag), not a plain struct.
+    /// server's wire format for `manage_script_run`'s `status`/`cancel`/`pause`/`resume` actions
+    /// (formerly the standalone `get_script_status`/`cancel_script`/`pause_script`/
+    /// `resume_script` tools, before INDIMCP-117 consolidated them). `Output` here is expected to
+    /// be a manually `Decodable` discriminated-union type (switching on a `kind`/similar tag), not
+    /// a plain struct.
     func callToolUnion<Output: Decodable & Sendable>(
         _ name: String,
         arguments: [String: Value]? = nil,

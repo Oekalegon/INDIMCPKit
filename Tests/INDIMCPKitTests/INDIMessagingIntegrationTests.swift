@@ -35,9 +35,6 @@ struct INDIMessagingIntegrationTests {
             let status = try await client.getINDIMessagingStatus()
             #expect(status.running == true)
 
-            let messages = try await client.listINDIMessages(limit: 5)
-            #expect(messages.count <= 5)
-
             let stopped = try await client.stopINDIMessaging()
             #expect(stopped.running == false)
 
