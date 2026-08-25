@@ -30,6 +30,7 @@ generically through ``Script`` and the script-run lifecycle types.
 ### Device control
 
 - <doc:DeviceControl>
+- <doc:CameraControl>
 - ``Mount``
 - ``Camera``
 - ``FilterWheel``
