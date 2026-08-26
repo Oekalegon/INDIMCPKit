@@ -11,12 +11,13 @@ import MCP
 /// parameters:locationId:)` directly rather than a same-named tool, unlike `park`/`slew`/etc.
 extension INDIMCPClient {
     /// Builds the `binningX`/`binningY`/`frameX`/`frameY`/`frameWidth`/`frameHeight` entries
-    /// shared by `captureFrame` and every capture-sequence wrapper below — `binningX`/`binningY`
-    /// are always sent (they default to 1, not "leave unchanged", unlike `gain`/`offset`);
-    /// `frameX`/`frameY`/`frameWidth`/`frameHeight` are sent only if given, so omitting them
-    /// leaves the full sensor in effect. Extracted once every one of these five call sites needed
-    /// the identical block, so a future change to this shape (e.g. a new ROI parameter) only
-    /// needs updating here.
+    /// shared by `captureFrame`, every capture-sequence wrapper below, and both calibration-sweep
+    /// wrappers — `binningX`/`binningY` are always sent (they default to 1, not "leave unchanged",
+    /// unlike `gain`/`offset`); `frameX`/`frameY`/`frameWidth`/`frameHeight` are sent only if
+    /// given, so omitting them leaves the full sensor in effect. Extracted once every one of these
+    /// call sites needed the identical block, so a future change to this shape (e.g. a new ROI
+    /// parameter) only needs updating here. Most callers want `mergingBinningAndFrameParameters`
+    /// below instead of calling this directly.
     func binningAndFrameParameters(
         binningX: Int,
         binningY: Int,
@@ -42,6 +43,30 @@ extension INDIMCPClient {
             parameters["frameHeight"] = .int(frameHeight)
         }
         return parameters
+    }
+
+    /// `binningAndFrameParameters(...)`, merged into an existing parameter/argument dictionary —
+    /// the one-line call every capture-sequence wrapper and calibration-sweep wrapper below uses,
+    /// so none of them repeat the `var ...; ....merge(...) { _, new in new }` shape by hand.
+    /// `into` and the binning/frame entries never share a key, so the merge conflict closure is
+    /// unreachable in practice; it's still required by `Dictionary.merge`'s signature.
+    func mergingBinningAndFrameParameters(
+        into parameters: [String: Value],
+        binningX: Int,
+        binningY: Int,
+        frameX: Int?,
+        frameY: Int?,
+        frameWidth: Int?,
+        frameHeight: Int?
+    ) -> [String: Value] {
+        var result = parameters
+        result.merge(
+            binningAndFrameParameters(
+                binningX: binningX, binningY: binningY,
+                frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
+            )
+        ) { _, new in new }
+        return result
     }
 
     /// Cools the rig's camera to `targetTempC`, then captures `count` dark frames.
@@ -91,17 +116,15 @@ extension INDIMCPClient {
         frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
-        var parameters: [String: Value] = [
-            "targetTempC": .double(targetTempC),
-            "exposureSeconds": .double(exposureSeconds),
-            "count": .int(count),
-        ]
-        parameters.merge(
-            binningAndFrameParameters(
-                binningX: binningX, binningY: binningY,
-                frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
-            )
-        ) { _, new in new }
+        var parameters = mergingBinningAndFrameParameters(
+            into: [
+                "targetTempC": .double(targetTempC),
+                "exposureSeconds": .double(exposureSeconds),
+                "count": .int(count),
+            ],
+            binningX: binningX, binningY: binningY,
+            frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
+        )
         if let gain {
             parameters["gain"] = .double(gain)
         }
@@ -160,16 +183,14 @@ extension INDIMCPClient {
         frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
-        var parameters: [String: Value] = [
-            "exposureSeconds": .double(exposureSeconds),
-            "count": .int(count),
-        ]
-        parameters.merge(
-            binningAndFrameParameters(
-                binningX: binningX, binningY: binningY,
-                frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
-            )
-        ) { _, new in new }
+        var parameters = mergingBinningAndFrameParameters(
+            into: [
+                "exposureSeconds": .double(exposureSeconds),
+                "count": .int(count),
+            ],
+            binningX: binningX, binningY: binningY,
+            frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
+        )
         if let gain {
             parameters["gain"] = .double(gain)
         }
@@ -232,18 +253,16 @@ extension INDIMCPClient {
         frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
-        var parameters: [String: Value] = [
-            "filterName": .string(filterName),
-            "focusPosition": .int(focusPosition),
-            "exposureSeconds": .double(exposureSeconds),
-            "count": .int(count),
-        ]
-        parameters.merge(
-            binningAndFrameParameters(
-                binningX: binningX, binningY: binningY,
-                frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
-            )
-        ) { _, new in new }
+        var parameters = mergingBinningAndFrameParameters(
+            into: [
+                "filterName": .string(filterName),
+                "focusPosition": .int(focusPosition),
+                "exposureSeconds": .double(exposureSeconds),
+                "count": .int(count),
+            ],
+            binningX: binningX, binningY: binningY,
+            frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
+        )
         if let gain {
             parameters["gain"] = .double(gain)
         }
@@ -316,21 +335,19 @@ extension INDIMCPClient {
         frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
-        var parameters: [String: Value] = [
-            "ra": .double(ra),
-            "dec": .double(dec),
-            "filterName": .string(filterName),
-            "focusPosition": .int(focusPosition),
-            "targetTempC": .double(targetTempC),
-            "exposureSeconds": .double(exposureSeconds),
-            "count": .int(count),
-        ]
-        parameters.merge(
-            binningAndFrameParameters(
-                binningX: binningX, binningY: binningY,
-                frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
-            )
-        ) { _, new in new }
+        var parameters = mergingBinningAndFrameParameters(
+            into: [
+                "ra": .double(ra),
+                "dec": .double(dec),
+                "filterName": .string(filterName),
+                "focusPosition": .int(focusPosition),
+                "targetTempC": .double(targetTempC),
+                "exposureSeconds": .double(exposureSeconds),
+                "count": .int(count),
+            ],
+            binningX: binningX, binningY: binningY,
+            frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
+        )
         if let objectName {
             parameters["objectName"] = .string(objectName)
         }

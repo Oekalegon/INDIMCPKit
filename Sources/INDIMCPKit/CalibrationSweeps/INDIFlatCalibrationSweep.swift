@@ -33,6 +33,13 @@ extension INDIMCPClient {
     ///   - focusPosition: The focuser position to move to before capturing, shared across every
     ///     combination.
     ///   - count: Flat frames captured per combination.
+    ///   - binningX: Horizontal binning factor for every frame in the sweep.
+    ///   - binningY: Vertical binning factor for every frame in the sweep.
+    ///   - frameX: Sub-frame origin X, in unbinned pixels, shared by every frame in the sweep.
+    ///     Omit (with `frameY`/`frameWidth`/`frameHeight`) for the full sensor.
+    ///   - frameY: Sub-frame origin Y, in unbinned pixels.
+    ///   - frameWidth: Sub-frame width, in unbinned pixels.
+    ///   - frameHeight: Sub-frame height, in unbinned pixels.
     ///   - locationId: A saved `Observatory` this sweep's captures should use, if any — same
     ///     best-effort semantics as `runScript`'s `locationId`.
     /// - Returns: An acknowledgment carrying the new `sweepId` and total combination count.
@@ -46,6 +53,12 @@ extension INDIMCPClient {
         filterName: String,
         focusPosition: Int,
         count: Int,
+        binningX: Int = 1,
+        binningY: Int = 1,
+        frameX: Int? = nil,
+        frameY: Int? = nil,
+        frameWidth: Int? = nil,
+        frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> FlatCalibrationSweepStarted {
         // Argument keys mirror INDIMCP-server's run_calibration_sweep parameter names exactly,
@@ -53,10 +66,8 @@ extension INDIMCPClient {
         // gains/offsets/exposureSecondsList/filterName/focusPosition/count) — not a typo, don't
         // "fix" the casing to match this file's other calls or the server won't recognize the
         // argument. Same convention as runSensorCalibrationSweep.
-        try await runCalibrationSweepTool(
-            kind: "flat",
-            rigId: rigId,
-            extra: [
+        let extra = mergingBinningAndFrameParameters(
+            into: [
                 "gains": .array(gains.map { .double($0) }),
                 "offsets": .array(offsets.map { .double($0) }),
                 "exposureSecondsList": .array(exposureSecondsList.map { .double($0) }),
@@ -64,6 +75,13 @@ extension INDIMCPClient {
                 "focusPosition": .int(focusPosition),
                 "count": .int(count),
             ],
+            binningX: binningX, binningY: binningY,
+            frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
+        )
+        return try await runCalibrationSweepTool(
+            kind: "flat",
+            rigId: rigId,
+            extra: extra,
             locationId: locationId,
             decoding: FlatCalibrationSweepStarted.self
         )

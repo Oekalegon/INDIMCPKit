@@ -32,6 +32,13 @@ extension INDIMCPClient {
     ///   - darkCount: Flat-dark frames captured per combination.
     ///   - biasExposureSeconds: Bias frame exposure length (seconds), shared across every
     ///     combination. Defaults to `0`, the shortest exposure the camera supports.
+    ///   - binningX: Horizontal binning factor for every frame in the sweep.
+    ///   - binningY: Vertical binning factor for every frame in the sweep.
+    ///   - frameX: Sub-frame origin X, in unbinned pixels, shared by every frame in the sweep.
+    ///     Omit (with `frameY`/`frameWidth`/`frameHeight`) for the full sensor.
+    ///   - frameY: Sub-frame origin Y, in unbinned pixels.
+    ///   - frameWidth: Sub-frame width, in unbinned pixels.
+    ///   - frameHeight: Sub-frame height, in unbinned pixels.
     ///   - locationId: A saved `Observatory` this sweep's captures should use, if any — same
     ///     best-effort semantics as `runScript`'s `locationId`.
     /// - Returns: An acknowledgment carrying the new `sweepId` and total combination count.
@@ -46,6 +53,12 @@ extension INDIMCPClient {
         biasCount: Int,
         darkCount: Int,
         biasExposureSeconds: Double = 0,
+        binningX: Int = 1,
+        binningY: Int = 1,
+        frameX: Int? = nil,
+        frameY: Int? = nil,
+        frameWidth: Int? = nil,
+        frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> SensorCalibrationSweepStarted {
         // Argument keys mirror INDIMCP-server's run_calibration_sweep parameter names exactly,
@@ -53,10 +66,8 @@ extension INDIMCPClient {
         // gains/offsets/flatExposureSecondsList/biasCount/darkCount/biasExposureSeconds) — not a
         // typo, don't "fix" the casing to match this file's other calls or the server won't
         // recognize the argument.
-        try await runCalibrationSweepTool(
-            kind: "sensor",
-            rigId: rigId,
-            extra: [
+        let extra = mergingBinningAndFrameParameters(
+            into: [
                 "gains": .array(gains.map { .double($0) }),
                 "offsets": .array(offsets.map { .double($0) }),
                 "flatExposureSecondsList": .array(flatExposureSecondsList.map { .double($0) }),
@@ -64,6 +75,13 @@ extension INDIMCPClient {
                 "darkCount": .int(darkCount),
                 "biasExposureSeconds": .double(biasExposureSeconds),
             ],
+            binningX: binningX, binningY: binningY,
+            frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
+        )
+        return try await runCalibrationSweepTool(
+            kind: "sensor",
+            rigId: rigId,
+            extra: extra,
             locationId: locationId,
             decoding: SensorCalibrationSweepStarted.self
         )

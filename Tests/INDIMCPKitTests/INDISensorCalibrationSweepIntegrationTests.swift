@@ -11,7 +11,10 @@ import Testing
 /// connected camera driver in this dev environment, so the sweep's single combination fails
 /// almost immediately rather than ever actually capturing a frame — that failure path, and the
 /// plumbing around it (start → poll → terminal status, cancel on an already-terminal sweep), is
-/// what's actually being verified here.
+/// what's actually being verified here. Passes non-default `binningX`/`binningY`/sub-frame values
+/// (IMCPKIT-65) rather than leaving them at their 1×1/omitted defaults, so a successful `started`
+/// result also confirms the server's `run_calibration_sweep` tool actually accepts those
+/// parameter names rather than rejecting them with `ValueError`.
 @Suite("INDI sensor calibration sweep (live server)")
 struct INDISensorCalibrationSweepIntegrationTests {
     @Test(
@@ -37,7 +40,13 @@ struct INDISensorCalibrationSweepIntegrationTests {
                 offsets: [10.0],
                 flatExposureSecondsList: [2.5],
                 biasCount: 3,
-                darkCount: 3
+                darkCount: 3,
+                binningX: 2,
+                binningY: 2,
+                frameX: 100,
+                frameY: 100,
+                frameWidth: 500,
+                frameHeight: 500
             )
             #expect(started.rigId == rig.id)
             #expect(started.totalCombinations == 1)
