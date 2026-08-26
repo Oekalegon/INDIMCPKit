@@ -1,10 +1,10 @@
 import INDIMCPKit
 import Observation
 
-/// Backs `CameraView` — owns the `Camera` handle and its `CommandRunner`, and tracks connection/
-/// cooler state so the view can gate its buttons without holding that logic itself. Mirrors
-/// `AppModel`/`ServerControlModel`'s split: views bind to a model, they don't run async device
-/// logic inline.
+/// Backs `CameraView` — owns the `Camera` handle, its `CommandRunner`, and the `ObservableDevice`
+/// that `isConnected`/`isCoolerOn` derive from, so the view can gate its buttons without holding
+/// that logic itself. Mirrors `AppModel`/`ServerControlModel`'s split: views bind to a model, they
+/// don't run async device logic inline.
 @MainActor
 @Observable
 final class CameraModel {
@@ -12,14 +12,14 @@ final class CameraModel {
     let runner: CommandRunner
     let observableDevice: ObservableDevice
 
-    private(set) var isConnected = false
-
     /// Optimistically flipped the instant `coolCamera`/`coolerOn`/`coolerOff` is called — each of
     /// those scripts' very first step is the `CCD_COOLER` switch itself, so the outcome is known
     /// before the run (which can then run for minutes, e.g. `coolCamera` waiting on temperature)
-    /// finishes. `refreshDeviceState` corrects this from the server once the run completes, in
-    /// case the command failed before even reaching that step.
-    private(set) var isCoolerOn: Bool?
+    /// finishes. Only a fallback: `isCoolerOn` prefers `observableDevice`'s live `CCD_COOLER`
+    /// reading the moment that's available, which also picks up the cooler being toggled
+    /// externally (e.g. in Ekos) — something this optimistic guess alone could never reflect
+    /// (IMCPKIT-28).
+    private var optimisticCoolerOn: Bool?
 
     init(client: INDIMCPClient, rigId: String) {
         self.camera = client.camera(rigId: rigId)
@@ -27,23 +27,27 @@ final class CameraModel {
         self.observableDevice = ObservableDevice(client: client, rigId: rigId, role: .camera)
     }
 
-    func refreshDeviceState() async {
-        async let connected = camera.isConnected()
-        async let coolerOn = camera.isCoolerOn()
-        isConnected = (try? await connected) ?? isConnected
-        isCoolerOn = (try? await coolerOn) ?? isCoolerOn
-    }
+    /// Whether the rig's camera component is connected, read live from `observableDevice`'s
+    /// `CONNECTION` property. `false` (not `nil`) before `observableDevice` has taken its first
+    /// snapshot — the same "not yet known, so gate on not-connected" default `CameraView`'s button
+    /// disabling already relied on.
+    var isConnected: Bool { observableDevice.isConnected ?? false }
+
+    /// Whether the cooler is on. Prefers `observableDevice`'s live `CCD_COOLER` reading, falling
+    /// back to `optimisticCoolerOn`'s instant local guess only while that live reading isn't
+    /// available yet — see `optimisticCoolerOn`'s doc comment.
+    var isCoolerOn: Bool? { Camera.coolerOn(from: observableDevice.properties) ?? optimisticCoolerOn }
 
     func connect() async { await run(camera.connect) }
     func disconnect() async { await run(camera.disconnect) }
 
     func coolCamera(targetTempC: Double) async {
-        isCoolerOn = true
+        optimisticCoolerOn = true
         await run { try await self.camera.coolCamera(targetTempC: targetTempC) }
     }
 
     func coolerOn() async {
-        isCoolerOn = true
+        optimisticCoolerOn = true
         await run(camera.coolerOn)
     }
 
@@ -51,7 +55,7 @@ final class CameraModel {
     /// the operator's way to stop an in-progress `coolCamera` run (which can legitimately take
     /// minutes) — cancelling that run doesn't itself turn the cooler back off, this does.
     func coolerOff() async {
-        isCoolerOn = false
+        optimisticCoolerOn = false
         await run(camera.coolerOff)
     }
 
@@ -61,8 +65,16 @@ final class CameraModel {
 
     func cancel() async { await runner.cancel() }
 
+    /// Clears `optimisticCoolerOn` if `start` didn't succeed: a failed run may never have reached
+    /// its `CCD_COOLER` step at all, so `observableDevice` has nothing to correct the guess with
+    /// (no property actually changed server-side) — leaving it set would report a cooler state
+    /// known to be wrong, indefinitely, until something unrelated happens to resync CCD_COOLER.
+    /// On success, the guess is left in place until `observableDevice`'s live reading supersedes
+    /// it, per `isCoolerOn`'s doc comment.
     private func run(_ start: @escaping @Sendable () async throws -> ScriptRunStarted) async {
         await runner.run(start)
-        await refreshDeviceState()
+        if case .failed = runner.state {
+            optimisticCoolerOn = nil
+        }
     }
 }

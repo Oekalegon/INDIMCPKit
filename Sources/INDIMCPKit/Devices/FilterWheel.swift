@@ -60,11 +60,7 @@ public struct FilterWheel: DeviceHandle {
     /// primitive `syncFilterNames`/`adoptFilterNamesFromDriver` already use server-side to detect
     /// a slot-count mismatch.
     public func liveFilterNames() async throws -> [Int: String] {
-        let rig = try await client.getRig(id: rigId)
-        guard let device = uniqueComponent(for: .filterWheel, in: rig)?.device else {
-            return [:]
-        }
-        guard let properties = try? await client.getDeviceProperties(device: device) else {
+        guard let properties = try await liveProperties() else {
             return [:]
         }
         guard let elements = properties.properties["FILTER_NAME"]?.elements else {

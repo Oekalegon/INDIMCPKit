@@ -36,6 +36,22 @@ extension DeviceHandle {
     public func isConnected() async throws -> Bool {
         try await client.isDeviceConnected(role: role, rigId: rigId)
     }
+
+    /// Best-effort live property snapshot for this rig's `role` component — `nil` if the rig has
+    /// no single component for `role` (missing or ambiguous), that component has no `device` name
+    /// resolved, or the property read itself fails for any reason (transport/protocol error, INDI
+    /// messaging not started, device never seen by the server, ...). Collapsing every failure
+    /// reason into one `nil` is deliberate: this backs read-only, UI-oriented getters (`Camera`'s
+    /// property getters, `FilterWheel`'s) that have nothing sensible to distinguish between "not
+    /// connected," "not yet observed," and "transport error" for — callers that need to tell those
+    /// apart should call `getDeviceProperties(device:)` themselves instead of relying on this.
+    func liveProperties() async throws -> DeviceProperties? {
+        let rig = try await client.getRig(id: rigId)
+        guard let device = uniqueComponent(for: role, in: rig)?.device else {
+            return nil
+        }
+        return try? await client.getDeviceProperties(device: device)
+    }
 }
 
 /// The rig's single component declaring `role` — `nil` if it declares zero or more than one.

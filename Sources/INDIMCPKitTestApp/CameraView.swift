@@ -2,9 +2,9 @@ import INDIMCPKit
 import SwiftUI
 
 /// Camera control screen — binds to `CameraModel`, which owns the `Camera` handle, `CommandRunner`,
-/// and the cooler-state tracking that isn't derivable from `ObservableDevice` alone (see
-/// `CameraModel`'s doc comment). Unlike `MountView`/`FocuserView`/`FilterWheelView`, which own their
-/// device handle and runner directly, this view needs that extra state, hence the model.
+/// and the `ObservableDevice`/optimistic-guess state its `isConnected`/`isCoolerOn` derive from
+/// (see `CameraModel`'s doc comment). Unlike `MountView`/`FocuserView`/`FilterWheelView`, which own
+/// their device handle and runner directly, this view needs that extra state, hence the model.
 struct CameraView: View {
     @State private var model: CameraModel
     @State private var targetTempC = "-10"
@@ -62,7 +62,6 @@ struct CameraView: View {
         }
         .padding()
         .navigationTitle("Camera")
-        .task { await model.refreshDeviceState() }
         // Scoped to isActive (whether this is the currently selected tab), not just view
         // lifecycle: TabView on macOS keeps every tab's content view alive in the hierarchy the
         // whole time the TabView exists, so onDisappear alone would never fire on a tab switch —

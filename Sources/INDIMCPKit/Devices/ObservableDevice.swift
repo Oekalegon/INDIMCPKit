@@ -47,6 +47,22 @@ public final class ObservableDevice: DeviceHandle {
     /// point since the last `start()`.
     public private(set) var lastError: String?
 
+    /// Whether the device is currently connected, per its live `CONNECTION` property — `nil` if
+    /// that property hasn't been observed yet (before `start()`'s initial snapshot completes, or
+    /// if the driver has never reported it at all).
+    ///
+    /// Unlike `DeviceHandle.isConnected()`, which asks the server fresh on every call, this
+    /// reflects whatever `properties` currently holds — kept fresh by the same snapshot/live-
+    /// update mechanism as every other property here, so it also picks up a connection change
+    /// driven externally (e.g. toggling the device in Ekos), not just one this handle itself
+    /// initiated (IMCPKIT-28).
+    public var isConnected: Bool? {
+        guard let value = properties["CONNECTION"]?.elements["CONNECT"] else {
+            return nil
+        }
+        return value == "On"
+    }
+
     /// The still-in-flight `start()` call, if any — resolving the device name and taking the
     /// initial snapshot before `beginSubscription`/`beginResync` even run. Cancelled by `teardown`
     /// alongside the other two tasks so a second `start()` can't race a first one still setting up.
