@@ -66,20 +66,18 @@ extension INDIMCPClient {
         // gains/offsets/flatExposureSecondsList/biasCount/darkCount/biasExposureSeconds) — not a
         // typo, don't "fix" the casing to match this file's other calls or the server won't
         // recognize the argument.
-        var extra: [String: Value] = [
-            "gains": .array(gains.map { .double($0) }),
-            "offsets": .array(offsets.map { .double($0) }),
-            "flatExposureSecondsList": .array(flatExposureSecondsList.map { .double($0) }),
-            "biasCount": .int(biasCount),
-            "darkCount": .int(darkCount),
-            "biasExposureSeconds": .double(biasExposureSeconds),
-        ]
-        extra.merge(
-            binningAndFrameParameters(
-                binningX: binningX, binningY: binningY,
-                frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
-            )
-        ) { _, new in new }
+        let extra = mergingBinningAndFrameParameters(
+            into: [
+                "gains": .array(gains.map { .double($0) }),
+                "offsets": .array(offsets.map { .double($0) }),
+                "flatExposureSecondsList": .array(flatExposureSecondsList.map { .double($0) }),
+                "biasCount": .int(biasCount),
+                "darkCount": .int(darkCount),
+                "biasExposureSeconds": .double(biasExposureSeconds),
+            ],
+            binningX: binningX, binningY: binningY,
+            frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
+        )
         return try await runCalibrationSweepTool(
             kind: "sensor",
             rigId: rigId,

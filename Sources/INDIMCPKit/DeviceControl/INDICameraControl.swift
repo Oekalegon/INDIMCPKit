@@ -66,16 +66,14 @@ extension INDIMCPClient {
         frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
-        var extra: [String: Value] = [
-            "exposureSeconds": .double(exposureSeconds),
-            "frameType": .string(frameType.rawValue),
-        ]
-        extra.merge(
-            binningAndFrameParameters(
-                binningX: binningX, binningY: binningY,
-                frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
-            )
-        ) { _, new in new }
+        var extra = mergingBinningAndFrameParameters(
+            into: [
+                "exposureSeconds": .double(exposureSeconds),
+                "frameType": .string(frameType.rawValue),
+            ],
+            binningX: binningX, binningY: binningY,
+            frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
+        )
         if let gain {
             extra["gain"] = .double(gain)
         }

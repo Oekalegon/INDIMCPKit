@@ -66,20 +66,18 @@ extension INDIMCPClient {
         // gains/offsets/exposureSecondsList/filterName/focusPosition/count) — not a typo, don't
         // "fix" the casing to match this file's other calls or the server won't recognize the
         // argument. Same convention as runSensorCalibrationSweep.
-        var extra: [String: Value] = [
-            "gains": .array(gains.map { .double($0) }),
-            "offsets": .array(offsets.map { .double($0) }),
-            "exposureSecondsList": .array(exposureSecondsList.map { .double($0) }),
-            "filterName": .string(filterName),
-            "focusPosition": .int(focusPosition),
-            "count": .int(count),
-        ]
-        extra.merge(
-            binningAndFrameParameters(
-                binningX: binningX, binningY: binningY,
-                frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
-            )
-        ) { _, new in new }
+        let extra = mergingBinningAndFrameParameters(
+            into: [
+                "gains": .array(gains.map { .double($0) }),
+                "offsets": .array(offsets.map { .double($0) }),
+                "exposureSecondsList": .array(exposureSecondsList.map { .double($0) }),
+                "filterName": .string(filterName),
+                "focusPosition": .int(focusPosition),
+                "count": .int(count),
+            ],
+            binningX: binningX, binningY: binningY,
+            frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
+        )
         return try await runCalibrationSweepTool(
             kind: "flat",
             rigId: rigId,
