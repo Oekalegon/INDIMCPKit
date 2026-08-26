@@ -15,8 +15,8 @@ import Testing
 struct CameraPropertyParsingTests {
     @Test("coolerOn reads COOLER_ON as true/false when CCD_COOLER is present")
     func coolerOnReadsKnownState() {
-        #expect(Camera.coolerOn(from: properties(["CCD_COOLER": ["COOLER_ON": "On"]])) == true)
-        #expect(Camera.coolerOn(from: properties(["CCD_COOLER": ["COOLER_ON": "Off"]])) == false)
+        #expect(Camera.coolerOn(from: properties(["CCD_COOLER": ["COOLER_ON": "On"]]).properties) == true)
+        #expect(Camera.coolerOn(from: properties(["CCD_COOLER": ["COOLER_ON": "Off"]]).properties) == false)
     }
 
     @Test("coolerOn reports nil, not false, when CCD_COOLER has never been observed")
@@ -24,12 +24,12 @@ struct CameraPropertyParsingTests {
         // The regression case: CCD_COOLER is absent entirely (not "Off", not empty elements —
         // absent), on a device whose properties snapshot otherwise decoded fine. Before the fix,
         // this returned .some(false) instead of nil.
-        #expect(Camera.coolerOn(from: properties([:])) == nil)
+        #expect(Camera.coolerOn(from: properties([:]).properties) == nil)
     }
 
     @Test("coolerOn reports nil when CCD_COOLER is present but missing COOLER_ON specifically")
     func coolerOnNilWhenElementMissing() {
-        #expect(Camera.coolerOn(from: properties(["CCD_COOLER": ["COOLER_OFF": "Off"]])) == nil)
+        #expect(Camera.coolerOn(from: properties(["CCD_COOLER": ["COOLER_OFF": "Off"]]).properties) == nil)
     }
 
     @Test("doubleElement reads a present element and reports nil for an absent one")

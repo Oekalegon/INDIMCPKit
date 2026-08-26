@@ -83,4 +83,27 @@ struct ObservableDeviceTests {
         #expect(device.properties["CCD_COOLER"]?.state == .ok)
         #expect(device.properties["CCD_COOLER"]?.elements == ["COOLER_ON": "On"])
     }
+
+    @Test func isConnectedIsNilBeforeConnectionHasEverBeenObserved() {
+        let device = makeDevice()
+        #expect(device.isConnected == nil)
+    }
+
+    @Test func isConnectedReflectsConnectAsTrueOrFalse() {
+        let device = makeDevice()
+        device.apply(event(kind: "propertyDefinition", name: "CONNECTION", elements: ["CONNECT": "On"]))
+        #expect(device.isConnected == true)
+
+        device.apply(event(kind: "propertyUpdate", name: "CONNECTION", elements: ["CONNECT": "Off"]))
+        #expect(device.isConnected == false)
+    }
+
+    @Test func isConnectedGoesBackToNilOnceConnectionIsDeleted() {
+        let device = makeDevice()
+        device.apply(event(kind: "propertyDefinition", name: "CONNECTION", elements: ["CONNECT": "On"]))
+        #expect(device.isConnected == true)
+
+        device.apply(event(kind: "propertyDeleted", name: "CONNECTION", elements: nil))
+        #expect(device.isConnected == nil)
+    }
 }

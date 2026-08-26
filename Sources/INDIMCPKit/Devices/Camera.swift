@@ -60,7 +60,7 @@ public struct Camera: DeviceHandle {
         guard let properties = try await liveProperties() else {
             return nil
         }
-        return Camera.coolerOn(from: properties)
+        return Camera.coolerOn(from: properties.properties)
     }
 
     // MARK: Cooler temperature/power
@@ -235,8 +235,18 @@ public struct Camera: DeviceHandle {
     /// `nil` when `CCD_COOLER` was absent, via Swift's optional-chaining-then-compare collapsing
     /// to a concrete `Bool`) which only live verification happened to catch, since nothing here
     /// could be tested without a real server before this was split out. See `isCoolerOn()`.
-    static func coolerOn(from properties: DeviceProperties) -> Bool? {
-        guard let value = properties.properties["CCD_COOLER"]?.elements["COOLER_ON"] else {
+    ///
+    /// `public`, and takes the raw property dictionary rather than a full `DeviceProperties`, so
+    /// it can also be applied to `ObservableDevice.properties` directly — e.g. by a UI model that
+    /// wants to derive cooler state from a device's live-tracked properties rather than fetching
+    /// its own snapshot (IMCPKIT-28).
+    ///
+    /// - Parameter properties: An already-fetched property dictionary, e.g. from
+    ///   `DeviceProperties.properties` or `ObservableDevice.properties`.
+    /// - Returns: `true`/`false` if `CCD_COOLER`'s `COOLER_ON` element has been observed, `nil` if
+    ///   it hasn't.
+    public static func coolerOn(from properties: [String: DeviceProperty]) -> Bool? {
+        guard let value = properties["CCD_COOLER"]?.elements["COOLER_ON"] else {
             return nil
         }
         return value == "On"
@@ -285,20 +295,6 @@ public struct Camera: DeviceHandle {
             return nil
         }
         return (x: x, y: y, width: width, height: height)
-    }
-
-    /// Best-effort live property snapshot for this rig's camera device — `nil` if the rig has no
-    /// single `camera`-role component (missing or ambiguous), that component has no `device` name
-    /// resolved, or the property read itself fails for any reason (transport/protocol error, INDI
-    /// messaging not started, device never seen by the server, ...). Shared by every property
-    /// getter above; see `isCoolerOn`'s doc comment for why collapsing every failure reason into
-    /// one `nil` is this method's deliberate contract, not an oversight.
-    private func liveProperties() async throws -> DeviceProperties? {
-        let rig = try await client.getRig(id: rigId)
-        guard let device = uniqueComponent(for: .camera, in: rig)?.device else {
-            return nil
-        }
-        return try? await client.getDeviceProperties(device: device)
     }
 
     /// Ensures this rig's camera is connected, then resolves its INDI device name — every setter
