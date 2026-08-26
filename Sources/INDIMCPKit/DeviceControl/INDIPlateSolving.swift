@@ -78,6 +78,40 @@ extension INDIMCPClient {
         frameHeight: Int? = nil,
         locationId: String? = nil
     ) async throws -> ScriptRunStarted {
+        let parameters = plateSolveRigParameters(
+            exposureSeconds: exposureSeconds,
+            syncMount: syncMount,
+            toleranceArcsec: toleranceArcsec,
+            maxAttempts: maxAttempts,
+            timeoutSeconds: timeoutSeconds,
+            binningX: binningX, binningY: binningY,
+            frameX: frameX, frameY: frameY, frameWidth: frameWidth, frameHeight: frameHeight
+        )
+        return try await runScript(
+            scriptId: "plate_solve_rig",
+            rigId: rigId,
+            parameters: parameters,
+            locationId: locationId
+        )
+    }
+
+    /// Builds `runPlateSolveRig`'s `parameters` dictionary — split out so its
+    /// conditional-inclusion logic (`exposureSeconds`/`toleranceArcsec` sent only when given,
+    /// unlike `syncMount`/`maxAttempts`/`timeoutSeconds`, always sent) is directly testable
+    /// offline, without a live server, the same way `binningAndFrameParameters` is.
+    func plateSolveRigParameters(
+        exposureSeconds: Double?,
+        syncMount: Bool,
+        toleranceArcsec: Double?,
+        maxAttempts: Int,
+        timeoutSeconds: Double,
+        binningX: Int,
+        binningY: Int,
+        frameX: Int?,
+        frameY: Int?,
+        frameWidth: Int?,
+        frameHeight: Int?
+    ) -> [String: Value] {
         var parameters = mergingBinningAndFrameParameters(
             into: [
                 "syncMount": .bool(syncMount),
@@ -93,11 +127,6 @@ extension INDIMCPClient {
         if let toleranceArcsec {
             parameters["toleranceArcsec"] = .double(toleranceArcsec)
         }
-        return try await runScript(
-            scriptId: "plate_solve_rig",
-            rigId: rigId,
-            parameters: parameters,
-            locationId: locationId
-        )
+        return parameters
     }
 }

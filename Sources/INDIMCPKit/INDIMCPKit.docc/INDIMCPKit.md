@@ -85,6 +85,7 @@ generically through ``Script`` and the script-run lifecycle types.
 - ``ScriptRunError``
 - ``PauseOutcome``
 - ``ResumeOutcome``
+- ``INDIMCPClient/runPlateSolveRig(rigId:exposureSeconds:syncMount:toleranceArcsec:maxAttempts:timeoutSeconds:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``
 
 ### Calibration sweeps
 
