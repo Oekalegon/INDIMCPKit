@@ -93,6 +93,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 The standard/built-in MCP tool set is modeled (server/driver management, messaging, rigs,
 observatories, scripts, and device control), the `Mount`/`Camera`/`FilterWheel`/`Focuser`
-device-type abstractions are built on top of it, and the SwiftUI test app exercises them —
-see the `INDIMCPKit` project in the todo tracker for what's still open (plate-solving/
-astrometry-index tools, ongoing hardening).
+device-type abstractions are built on top of it, and the SwiftUI test app exercises them.
+Rig-based plate solving (`runPlateSolveRig`) is modeled too — see the `INDIMCPKit` project in
+the todo tracker for what's still open (the `plate_solve_uploaded_frame`/`manage_astrometry_index`
+tools, ongoing hardening).

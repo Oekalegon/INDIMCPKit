@@ -42,6 +42,25 @@ updates) should poll `getScriptStatus` themselves rather than using the wait hel
 - ``INDIMCPClient/resumeScript(runId:)`` resumes a previously paused run — returns a
   ``ResumeOutcome``.
 
+## Plate solving
+
+Like the composed capture sequences (see <doc:DeviceControl>'s "Capture sequences" section),
+plate solving has no dedicated server-side tool of its own for the rig-based case — it's reachable
+only through the generic script mechanism, against a fixed built-in script id, `plate_solve_rig`.
+``INDIMCPClient/runPlateSolveRig(rigId:exposureSeconds:syncMount:toleranceArcsec:maxAttempts:timeoutSeconds:binningX:binningY:frameX:frameY:frameWidth:frameHeight:locationId:)``
+plate-solves the rig's camera and, by default, syncs the mount to the solved position:
+
+```swift
+let started = try await client.runPlateSolveRig(rigId: "my-rig", exposureSeconds: 5)
+```
+
+Omit `exposureSeconds` to solve whichever frame the run most recently captured instead of taking a
+fresh one. Set `toleranceArcsec` to retry — re-syncing and re-slewing toward the mount's commanded
+target each attempt — until the solved position is within tolerance or `maxAttempts` is exhausted;
+omit it for a single solve attempt. The solved position itself isn't returned by this call or by
+polling the run's status — it's written to the captured frame's WCS FITS headers instead, readable
+via the frame-management tools once the run completes.
+
 ## User-authored scripts
 
 INDIMCPKit models the standard tool surface only, not any particular server instance's saved
