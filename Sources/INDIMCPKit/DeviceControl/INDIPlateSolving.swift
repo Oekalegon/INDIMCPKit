@@ -58,11 +58,11 @@ extension INDIMCPClient {
     ///   - locationId: A saved `Observatory` this run's fresh capture (if any) should use, same
     ///     best-effort semantics as `runScript`'s `locationId`.
     /// - Returns: A `ScriptRunStarted` acknowledging the newly started run.
-    /// - Throws: `INDIMCPClientError.toolCallFailed` if `rigId`/`locationId` doesn't resolve on
-    ///   the server, or another `INDIMCPClientError` case on a transport/connection failure. A
-    ///   `toleranceArcsec`/`exposureSeconds`/`syncMount` combination the script itself rejects
-    ///   (see above) surfaces as a `.failed` status from a later `getScriptStatus`, not a thrown
-    ///   error from this call.
+    /// - Throws: `INDIMCPClientError.toolCallFailed` if the server rejects the run outright, or
+    ///   another `INDIMCPClientError` case on a transport/connection failure. An unknown
+    ///   `rigId`/`locationId`, or a `toleranceArcsec`/`exposureSeconds`/`syncMount` combination
+    ///   the script itself rejects (see above), does *not* throw from this call — each surfaces
+    ///   as a `.failed` status from a later `getScriptStatus`, same as `runScript` itself.
     public func runPlateSolveRig(
         rigId: String,
         exposureSeconds: Double? = nil,
