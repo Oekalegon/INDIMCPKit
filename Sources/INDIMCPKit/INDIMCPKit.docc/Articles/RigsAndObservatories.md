@@ -56,3 +56,19 @@ saved locations, the same list/get shape as rigs and scripts.
 ``INDIMCPClient/draftObservatory()`` pre-fills an ``ObservatoryDraft`` from a
 connected GPS/location-capable INDI device, the same "draft, never auto-save" pattern as
 ``INDIMCPClient/draftRig()``.
+
+Optionally, an observatory can also declare real horizon obstructions — trees, buildings,
+terrain — beyond the geometric horizon, via ``Observatory/horizonProfile``:
+
+```swift
+let location = Observatory(
+    id: "home-observatory", name: "Home", latitudeDeg: 52.1, longitudeDeg: 5.1,
+    horizonProfile: [
+        HorizonPoint(azimuthDeg: 0, altitudeDeg: 5.2),
+        HorizonPoint(azimuthDeg: 90, altitudeDeg: 12.9),
+    ]
+)
+```
+
+`nil` (the default) means no obstruction data is available, distinct from an explicit flat
+horizon — see ``HorizonPoint`` for the point format.

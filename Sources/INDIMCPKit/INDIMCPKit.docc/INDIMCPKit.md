@@ -61,6 +61,7 @@ generically through ``Script`` and the script-run lifecycle types.
 - ``FocusRange``
 - ``DraftDeviceInfo``
 - ``Observatory``
+- ``HorizonPoint``
 - ``ObservatorySummary``
 - ``ObservatoryDraft``
 - ``DraftLocationDeviceInfo``
