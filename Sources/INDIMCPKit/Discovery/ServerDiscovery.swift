@@ -154,17 +154,24 @@ public final class ServerDiscovery {
         let hostString: String
         switch host {
         case .ipv4(let address):
-            hostString = "\(address)"
+            hostString = Self.strippingZoneID(from: "\(address)")
         case .ipv6(let address):
-            // Drop a zone-id suffix (e.g. "fe80::1%en0") — not part of the address itself, and
-            // meaningless once carried into a URL handed to a different networking stack.
-            hostString = "\(address)".split(separator: "%").first.map(String.init) ?? "\(address)"
+            hostString = Self.strippingZoneID(from: "\(address)")
         case .name(let hostname, _):
             hostString = hostname
         @unknown default:
             return nil
         }
         return (hostString, Int(port.rawValue))
+    }
+
+    /// Drops a zone-id suffix (e.g. `192.168.68.80%en0`, `fe80::1%en0`) from a resolved address's
+    /// description — `NWEndpoint.Host`'s `description` appends the resolving interface this way
+    /// for *both* IPv4 and IPv6 addresses (confirmed against a real resolution, not just IPv6 as
+    /// initially assumed), and the zone id isn't part of the address itself nor meaningful once
+    /// carried into a URL handed to a different networking stack (e.g. `URLSession`).
+    private static func strippingZoneID(from address: String) -> String {
+        address.split(separator: "%").first.map(String.init) ?? address
     }
 
     private static func txtValue(_ metadata: NWBrowser.Result.Metadata, key: String) -> String? {
