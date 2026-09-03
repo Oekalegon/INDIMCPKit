@@ -48,6 +48,8 @@ public struct DiscoveredServer: Identifiable, Sendable, Equatable {
     /// (`bonjour.py`'s `_server_version()`) — `nil` if the key is missing.
     public let version: String?
 
+    /// Creates a discovered server directly, without going through ``ServerDiscovery``. Every
+    /// parameter mirrors the identically-named, already-documented property above.
     public init(name: String, host: String, port: Int, path: String = "/mcp", version: String? = nil) {
         self.name = name
         self.host = host
