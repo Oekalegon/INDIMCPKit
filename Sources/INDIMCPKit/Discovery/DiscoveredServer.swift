@@ -65,9 +65,18 @@ public struct DiscoveredServer: Identifiable, Sendable, Equatable {
     /// Built from a plain string, not `URLComponents`, so an IPv6 `host` (e.g. `fe80::1`) can be
     /// bracketed explicitly — `URLComponents.host` doesn't reliably add the brackets an IPv6
     /// literal needs in a URL string on its own.
+    ///
+    /// `path` is percent-encoded before being embedded: unlike `host`/`port` (parsed from a
+    /// resolved network address, effectively hard to get otherwise-malformed), `path` comes
+    /// verbatim from a Bonjour TXT record — arbitrary text chosen by whatever device advertises
+    /// itself under `indiMCPServiceType`, since Bonjour/mDNS has no authentication. Encoding it
+    /// (rather than trusting it's already URL-safe) is what keeps the `preconditionFailure` below
+    /// truly unreachable rather than a crash any misconfigured or hostile device on the LAN could
+    /// trigger just by advertising a `path` containing a space or other unsafe character.
     public var endpoint: URL {
         let bracketedHost = host.contains(":") ? "[\(host)]" : host
-        guard let url = URL(string: "http://\(bracketedHost):\(port)\(path)") else {
+        let encodedPath = path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? ""
+        guard let url = URL(string: "http://\(bracketedHost):\(port)\(encodedPath)") else {
             preconditionFailure(
                 "DiscoveredServer(host: \(host), port: \(port), path: \(path)) failed to form a valid URL"
             )
