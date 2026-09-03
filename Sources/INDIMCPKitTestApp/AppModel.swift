@@ -17,6 +17,11 @@ final class AppModel {
     private(set) var connectionStatus = ConnectionStatus.disconnected
     private(set) var client: INDIMCPClient?
 
+    /// Browses for INDIMCP-server instances on the local network — `ConnectionView` offers each
+    /// discovered server as a one-tap fill-in for ``serverURLString`` rather than requiring the
+    /// operator to type a hostname/IP.
+    let discovery = ServerDiscovery()
+
     /// The rig picked (or created) on `RigSelectionView`, after connecting. `nil` until then, even
     /// once `isConnected` — device screens can't show until a rig is chosen.
     var selectedRigId: String?

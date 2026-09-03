@@ -140,6 +140,14 @@ generically through ``Script`` and the script-run lifecycle types.
 - ``ServerInfo``
 - ``IndiServerStatus``
 
+### Server discovery
+
+- <doc:ServerDiscovery>
+- ``ServerDiscovery``
+- ``DiscoveredServer``
+- ``indiMCPServiceType``
+- ``indiMCPServiceDomain``
+
 ### Errors
 
 - ``INDIMCPClientError``
