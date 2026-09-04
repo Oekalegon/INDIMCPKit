@@ -31,7 +31,7 @@ final class CameraModel {
     /// `CONNECTION` property. `false` (not `nil`) before `observableDevice` has taken its first
     /// snapshot — the same "not yet known, so gate on not-connected" default `CameraView`'s button
     /// disabling already relied on.
-    var isConnected: Bool { observableDevice.isConnected ?? false }
+    var isConnected: Bool { observableDevice.liveIsConnected ?? false }
 
     /// Whether the cooler is on. Prefers `observableDevice`'s live `CCD_COOLER` reading, falling
     /// back to `optimisticCoolerOn`'s instant local guess only while that live reading isn't
@@ -65,15 +65,22 @@ final class CameraModel {
 
     func cancel() async { await runner.cancel() }
 
-    /// Clears `optimisticCoolerOn` if `start` didn't succeed: a failed run may never have reached
-    /// its `CCD_COOLER` step at all, so `observableDevice` has nothing to correct the guess with
-    /// (no property actually changed server-side) — leaving it set would report a cooler state
-    /// known to be wrong, indefinitely, until something unrelated happens to resync CCD_COOLER.
-    /// On success, the guess is left in place until `observableDevice`'s live reading supersedes
-    /// it, per `isCoolerOn`'s doc comment.
+    /// Clears `optimisticCoolerOn` if `start` didn't itself reach `ScriptRunStatus.completed`: a
+    /// failed (or cancelled/paused/rejected) run may never have reached its `CCD_COOLER` step at
+    /// all, so `observableDevice` has nothing to correct the guess with (no property actually
+    /// changed server-side) — leaving it set would report a cooler state known to be wrong,
+    /// indefinitely, until something unrelated happens to resync CCD_COOLER. On success, the guess
+    /// is left in place until `observableDevice`'s live reading supersedes it, per `isCoolerOn`'s
+    /// doc comment.
+    ///
+    /// Uses `runner.run`'s own return value for this rather than inspecting `runner.state`
+    /// afterward: `state` is shared across overlapping calls (`coolerOff()` deliberately isn't
+    /// gated on `runner.isBusy`, so it can interrupt an in-progress `coolCamera()` — see
+    /// `CommandRunner.cancel()`'s doc comment), so by the time this call resumes, `state` could
+    /// already reflect a *different*, newer call's progress rather than this one's own outcome.
     private func run(_ start: @escaping @Sendable () async throws -> ScriptRunStarted) async {
-        await runner.run(start)
-        if case .failed = runner.state {
+        let succeeded = await runner.run(start)
+        if !succeeded {
             optimisticCoolerOn = nil
         }
     }

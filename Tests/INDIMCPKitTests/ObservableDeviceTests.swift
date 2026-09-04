@@ -84,26 +84,26 @@ struct ObservableDeviceTests {
         #expect(device.properties["CCD_COOLER"]?.elements == ["COOLER_ON": "On"])
     }
 
-    @Test func isConnectedIsNilBeforeConnectionHasEverBeenObserved() {
+    @Test func liveIsConnectedIsNilBeforeConnectionHasEverBeenObserved() {
         let device = makeDevice()
-        #expect(device.isConnected == nil)
+        #expect(device.liveIsConnected == nil)
     }
 
-    @Test func isConnectedReflectsConnectAsTrueOrFalse() {
+    @Test func liveIsConnectedReflectsConnectAsTrueOrFalse() {
         let device = makeDevice()
         device.apply(event(kind: "propertyDefinition", name: "CONNECTION", elements: ["CONNECT": "On"]))
-        #expect(device.isConnected == true)
+        #expect(device.liveIsConnected == true)
 
         device.apply(event(kind: "propertyUpdate", name: "CONNECTION", elements: ["CONNECT": "Off"]))
-        #expect(device.isConnected == false)
+        #expect(device.liveIsConnected == false)
     }
 
-    @Test func isConnectedGoesBackToNilOnceConnectionIsDeleted() {
+    @Test func liveIsConnectedGoesBackToNilOnceConnectionIsDeleted() {
         let device = makeDevice()
         device.apply(event(kind: "propertyDefinition", name: "CONNECTION", elements: ["CONNECT": "On"]))
-        #expect(device.isConnected == true)
+        #expect(device.liveIsConnected == true)
 
         device.apply(event(kind: "propertyDeleted", name: "CONNECTION", elements: nil))
-        #expect(device.isConnected == nil)
+        #expect(device.liveIsConnected == nil)
     }
 }

@@ -52,16 +52,26 @@ final class CommandRunner {
     /// both keep writing to `state` as their responses arrive, and the UI flip-flops between
     /// whichever one's poll happened to land last — not a server or kit bug, just two independent
     /// pollers racing to update one piece of state.
-    func run(_ start: @escaping @Sendable () async throws -> ScriptRunStarted) async {
+    ///
+    /// - Returns: Whether *this specific call's* run reached `ScriptRunStatus.completed` —
+    ///   `false` for a thrown error, a rejected/cancelled/paused terminal status, or this run being
+    ///   cancelled by a newer overlapping call. Reports this call's own outcome directly rather
+    ///   than leaving the caller to infer it from `state` afterward: `state` is shared and can
+    ///   already be showing a *different*, overlapping call's progress by the time this one
+    ///   returns — e.g. `coolerOff()` cancelling an in-progress `coolCamera()` (see `cancel()`'s
+    ///   doc comment) — so reading it after the fact would attribute the wrong call's outcome.
+    @discardableResult
+    func run(_ start: @escaping @Sendable () async throws -> ScriptRunStarted) async -> Bool {
         activeRun?.cancel()
         state = .starting
         currentRunId = nil
+        var succeeded = false
         let task = Task { [weak self] in
             guard let self else { return }
             do {
                 let started = try await start()
                 self.currentRunId = started.runId
-                await self.poll(runId: started.runId)
+                succeeded = await self.poll(runId: started.runId)
             } catch {
                 if !Task.isCancelled {
                     self.state = .failed(String(describing: error))
@@ -70,6 +80,7 @@ final class CommandRunner {
         }
         activeRun = task
         await task.value
+        return succeeded
     }
 
     /// Cancels the currently in-flight run, both locally (stop polling) and server-side (via
@@ -102,22 +113,28 @@ final class CommandRunner {
         }
     }
 
-    private func poll(runId: String) async {
+    /// - Returns: Whether the run reached `ScriptRunStatus.completed` specifically — `false` for
+    ///   any other terminal status (`.failed`/`.cancelled`/`.paused`/`.pauseRejected`), a thrown
+    ///   error, or cancellation.
+    private func poll(runId: String) async -> Bool {
         while true {
-            if Task.isCancelled { return }
+            if Task.isCancelled { return false }
             do {
                 let status = try await client.getScriptStatus(runId: runId)
-                if Task.isCancelled { return }
+                if Task.isCancelled { return false }
                 if status.isTerminal {
                     state = .finished(status)
-                    return
+                    if case .completed = status {
+                        return true
+                    }
+                    return false
                 }
                 state = .running(status)
             } catch {
                 if !Task.isCancelled {
                     state = .failed(String(describing: error))
                 }
-                return
+                return false
             }
             try? await Task.sleep(for: .milliseconds(500))
         }
