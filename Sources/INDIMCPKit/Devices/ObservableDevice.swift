@@ -51,12 +51,15 @@ public final class ObservableDevice: DeviceHandle {
     /// that property hasn't been observed yet (before `start()`'s initial snapshot completes, or
     /// if the driver has never reported it at all).
     ///
-    /// Unlike `DeviceHandle.isConnected()`, which asks the server fresh on every call, this
-    /// reflects whatever `properties` currently holds — kept fresh by the same snapshot/live-
-    /// update mechanism as every other property here, so it also picks up a connection change
-    /// driven externally (e.g. toggling the device in Ekos), not just one this handle itself
-    /// initiated (IMCPKIT-28).
-    public var isConnected: Bool? {
+    /// Named distinctly from `DeviceHandle.isConnected()` — the async, throwing method this type
+    /// also inherits from its `DeviceHandle` conformance, which asks the server fresh on every
+    /// call — rather than overloading the same base name for two members with very different
+    /// semantics (a locally-cached live reading vs. a round trip) and failure behavior (`nil` vs.
+    /// `throws`). This reflects whatever `properties` currently holds — kept fresh by the same
+    /// snapshot/live-update mechanism as every other property here, so it also picks up a
+    /// connection change driven externally (e.g. toggling the device in Ekos), not just one this
+    /// handle itself initiated (IMCPKIT-28).
+    public var liveIsConnected: Bool? {
         guard let value = properties["CONNECTION"]?.elements["CONNECT"] else {
             return nil
         }
